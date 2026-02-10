@@ -1,0 +1,455 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+// Model（モデル：DB操作クラス）
+use App\Models\User;
+use App\Models\ConfiguratorSession;
+use App\Models\ConfiguratorSession as SessionModel;
+
+final class RealDataSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // 乱数（random：ランダム）を毎回同じにしたいなら seed（シード：種）を固定
+        // mt_srand(1234);
+
+        DB::transaction(function () {
+            // =========
+            // 0) users（Laravel標準）
+            // =========
+            $fixed = $this->seedFixedUsers();
+            // $this->seedUsers(3);
+
+            // =========
+            // 1) accounts / account_user
+            // =========
+            $mainAccountId = $this->ensureMainAccount();
+            $this->seedFixedAccountUsers($mainAccountId, $fixed);
+            // $accountIds = $this->seedAccounts(3);
+            // $userIds = User::query()->orderBy('id')->limit(10)->pluck('id')->all();
+            // $this->seedAccountUser($accountIds, $userIds);
+
+            // =========
+            // 2) skus
+            // =========
+            $skuRows = $this->seedSkus();         // だいたい10〜15件
+            $skuIdByCode = DB::table('skus')->pluck('id', 'sku_code')->all();
+
+            // =========
+            // 3) price_books / price_book_items
+            // =========
+            $priceBookIds = $this->seedPriceBooks(1);
+            $this->seedPriceBookItems($priceBookIds, $skuIdByCode, 25);
+
+            // =========
+            // 4) product_templates / product_template_versions
+            // =========
+            $templateVersionIds = $this->seedTemplatesAndVersions(1);
+
+            // =========
+            // 5) configurator_sessions（config/derived/validation_errors）
+            // =========
+            // $sessionIds = $this->seedConfiguratorSessions(1, $accountIds, $templateVersionIds);
+        });
+    }
+
+    // -------------------------
+    // users
+    // -------------------------
+    private function seedFixedUsers(): array
+    {
+        $users = [
+            'admin@gmail.com' => ['name' => 'Admin', 'password' => '1234567890'],
+            'sales@gmail.com' => ['name' => 'Sales', 'password' => '1234567890'],
+            'customer@gmail.com' => ['name' => 'Customer', 'password' => '1234567890'],
+        ];
+
+        $ids = [];
+        foreach ($users as $email => $u) {
+            $user = User::query()->updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $u['name'],
+                    'password' => Hash::make($u['password']),
+                ]
+            );
+            $ids[$email] = $user->id;
+        }
+
+        return $ids;
+    }
+
+    private function seedUsers(int $n): void
+    {
+        // 既に10人以上いれば追加しない（updateOrInsert：なければ作る）
+        $existing = User::query()->count();
+        if ($existing >= $n) return;
+
+        $toCreate = $n - $existing;
+
+        for ($i = 1; $i <= $toCreate; $i++) {
+            $num = $existing + $i;
+            User::query()->create([
+                'name' => "Demo User {$num}",
+                'email' => "demo{$num}@example.com",
+                'password' => Hash::make('password'),
+            ]);
+        }
+    }
+
+    // -------------------------
+    // accounts
+    // -------------------------
+    private function ensureMainAccount(): int
+    {
+        $id = (int)DB::table('accounts')->where('name', 'Main Account')->value('id');
+        if ($id > 0) return $id;
+
+        return (int)DB::table('accounts')->insertGetId([
+            'account_type' => 'B2B',
+            'name' => 'Main Account',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function seedAccounts(int $n): array
+    {
+        // 既存を尊重しつつ不足分だけ追加
+        $existingIds = DB::table('accounts')->orderBy('id')->pluck('id')->all();
+        $need = $n - count($existingIds);
+
+        if ($need > 0) {
+            $rows = [];
+            for ($i = 1; $i <= $need; $i++) {
+                $idx = count($existingIds) + $i;
+                $rows[] = [
+                    'account_type' => ($idx % 2 === 0) ? 'B2B' : 'B2C',
+                    'name' => "Demo Account {$idx}",
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+            DB::table('accounts')->insert($rows);
+        }
+
+        return DB::table('accounts')->orderBy('id')->limit($n)->pluck('id')->all();
+    }
+
+    // -------------------------
+    // account_user（pivot：中間テーブル）
+    // -------------------------
+    private function seedAccountUser(array $accountIds, array $userIds): void
+    {
+        $roles = ['admin', 'sales', 'customer'];
+
+        $rows = [];
+        $pairs = 0;
+
+        // 各account（アカウント：顧客）にユーザー2人ぐらい紐づける
+        foreach ($accountIds as $ai => $accountId) {
+            $u1 = $userIds[$ai % count($userIds)];
+            $u2 = $userIds[($ai + 1) % count($userIds)];
+
+            $rows[] = $this->pivotRow($accountId, $u1, $roles[$ai % 3]);
+            $rows[] = $this->pivotRow($accountId, $u2, $roles[($ai + 1) % 3]);
+
+            $pairs += 2;
+            if ($pairs >= 20) break; // だいたい20件
+        }
+
+        foreach ($rows as $r) {
+            DB::table('account_user')->updateOrInsert(
+                ['account_id' => $r['account_id'], 'user_id' => $r['user_id']],
+                $r
+            );
+        }
+    }
+
+    private function pivotRow(int $accountId, int $userId, string $role): array
+    {
+        return [
+            'account_id' => $accountId,
+            'user_id' => $userId,
+            'role' => $role,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+    }
+
+    private function seedFixedAccountUsers(int $accountId, array $fixedUserIds): void
+    {
+        $map = [
+            'admin@gmail.com' => 'admin',
+            'sales@gmail.com' => 'sales',
+            'customer@gmail.com' => 'customer',
+        ];
+
+        foreach ($map as $email => $role) {
+            $userId = $fixedUserIds[$email] ?? null;
+            if (!$userId) continue;
+            DB::table('account_user')->updateOrInsert(
+                ['account_id' => $accountId, 'user_id' => $userId],
+                $this->pivotRow($accountId, $userId, $role)
+            );
+        }
+    }
+
+    // -------------------------
+    // skus
+    // -------------------------
+    private function seedSkus(): array
+    {
+        // だいたい 2件×5カテゴリ + α
+        $rows = [
+            // PROC（工程）
+            $this->skuRow('PROC_MFD', 'MFD変換', 'PROC', ['kind' => 'mfd']),
+            $this->skuRow('PROC_FBG',  'FBGセンサ', 'PROC', ['kind' => 'fbg']),
+            $this->skuRow('PROC_TEC', 'TEC加工', 'PROC', ['kind' => 'tec']),
+
+            // SLEEVE（補強）
+            $this->skuRow('SLEEVE_RECOTE', 'リコート', 'SLEEVE', ['material' => 'polymer']),
+            $this->skuRow('SLEEVE_SPRICESLEEVE', '補強スリーブ', 'SLEEVE', ['material' => 'metal']),
+            $this->skuRow('SLEEVE_SUS_PIPE', 'SUSパイプ', 'SLEEVE', ['material' => 'sus']),
+
+            // FIBER（ファイバ）
+            $this->skuRow('FIBER_SMF28E+', 'SMF28e+', 'FIBER', ['mfd' => '9/125', 'minLen' => 50, 'maxLen' => 10000]),
+            $this->skuRow('FIBER_UHNA1', 'UHNA1', 'FIBER', ['mfd' => '10/125', 'minLen' => 50, 'maxLen' => 10000]),
+            $this->skuRow('FIBER_PMF', 'PMF', 'FIBER', ['mfd' => '10/125', 'minLen' => 50, 'maxLen' => 10000]),
+
+            // TUBE（チューブ）
+            $this->skuRow('TUBE_0.9_LOOSE', 'Φ0.9ルースチューブ', 'TUBE', ['minLen' => 30, 'maxLen' => 10000]),
+
+            // CONNECTOR（コネクタ：端子）
+            $this->skuRow('CONN_FERRULE_PC', 'フェルール/PCコネクタ', 'CONNECTOR', ['polish' => 'PC']),
+            $this->skuRow('CONN_FERRULE_APC', 'フェルール/APCコネクタ', 'CONNECTOR', ['polish' => 'APC']),
+            $this->skuRow('CONN_FERRULE_ARCOAT', 'フェルール/ARコート', 'CONNECTOR', ['polish' => 'ARcoat']),
+            $this->skuRow('CONN_FC_PC', 'FC/PCコネクタ', 'CONNECTOR', ['polish' => 'PC']),
+            $this->skuRow('CONN_FC_APC', 'FC/APCコネクタ', 'CONNECTOR', ['polish' => 'APC']),
+            $this->skuRow('CONN_FC_ARCOAT', 'FC/ARコート', 'CONNECTOR', ['polish' => 'ARcoat']),
+            $this->skuRow('CONN_SC_PC', 'SC/PCコネクタ', 'CONNECTOR', ['polish' => 'PC']),
+            $this->skuRow('CONN_SC_APC', 'SC/APCコネクタ', 'CONNECTOR', ['polish' => 'APC']),
+            $this->skuRow('CONN_SC_ARCOAT', 'SC/ARコート', 'CONNECTOR', ['polish' => 'ARcoat']),
+            $this->skuRow('CONN_LC_PC', 'LC/PCコネクタ', 'CONNECTOR', ['polish' => 'PC']),
+            $this->skuRow('CONN_LC_APC', 'LC/APCコネクタ', 'CONNECTOR', ['polish' => 'APC']),
+            $this->skuRow('CONN_LC_ARCOAT', 'LC/ARコート', 'CONNECTOR', ['polish' => 'ARcoat']),
+        ];
+
+        foreach ($rows as $r) {
+            DB::table('skus')->updateOrInsert(
+                ['sku_code' => $r['sku_code']],
+                $r
+            );
+        }
+
+        return $rows;
+    }
+
+    private function skuRow(string $code, string $name, string $category, array $attrs): array
+    {
+        return [
+            'sku_code' => $code,
+            'name' => $name,
+            'category' => $category,
+            'active' => true,
+            'attributes' => json_encode($attrs, JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+    }
+
+    // -------------------------
+    // price_books
+    // -------------------------
+    private function seedPriceBooks(int $n): array
+    {
+        $existing = DB::table('price_books')->count();
+        $need = max(0, $n - $existing);
+
+        if ($need > 0) {
+            $rows = [];
+            for ($i = 1; $i <= $need; $i++) {
+                $idx = $existing + $i;
+                $rows[] = [
+                    'name' => 'STANDARD',
+                    'version' => $idx,
+                    'currency' => 'JPY',
+                    'valid_from' => now()->toDateString(),
+                    'valid_to' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+            // unique(name,version)なので insertでOK
+            DB::table('price_books')->insert($rows);
+        }
+
+        return DB::table('price_books')->orderBy('id')->limit($n)->pluck('id')->all();
+    }
+
+    // -------------------------
+    // price_book_items
+    // -------------------------
+    private function seedPriceBookItems(array $priceBookIds, array $skuIdByCode, int $approxN): void
+    {
+        // だいたい10件。price_book_idとsku_idを適当に組み合わせる
+        $skuIds = array_values($skuIdByCode);
+        if (count($skuIds) === 0) return;
+
+        $rows = [];
+        for ($i = 0; $i < $approxN; $i++) {
+            $pbId = $priceBookIds[$i % count($priceBookIds)];
+            $skuId = $skuIds[$i % count($skuIds)];
+
+            $model = ['FIXED', 'PER_MM', 'FORMULA'][$i % 3];
+
+            $rows[] = [
+                'price_book_id' => $pbId,
+                'sku_id' => $skuId,
+                'pricing_model' => $model,
+                'unit_price' => ($model === 'FIXED') ? (1000 + $i * 50) : null,
+                'price_per_mm' => ($model === 'PER_MM') ? (0.8 + $i * 0.01) : null,
+                'formula' => ($model === 'FORMULA')
+                    ? json_encode(['type' => 'linear', 'base' => 500, 'k' => 1.2], JSON_UNESCAPED_UNICODE)
+                    : null,
+                'min_qty' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        // 重複し得るので updateOrInsert（ただしユニーク制約は無いので本当はinsertでもOK）
+        foreach ($rows as $r) {
+            DB::table('price_book_items')->insert($r);
+        }
+    }
+
+    // -------------------------
+    // product_templates / product_template_versions
+    // -------------------------
+    private function seedTemplatesAndVersions(int $n): array
+    {
+        $templateIds = [];
+
+        for ($i = 1; $i <= $n; $i++) {
+            $code = sprintf('TPL_%02d', $i);
+
+            DB::table('product_templates')->updateOrInsert(
+                ['template_code' => $code],
+                [
+                    'name' => "Demo Template {$i}",
+                    'active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+
+            $templateId = DB::table('product_templates')->where('template_code', $code)->value('id');
+            $templateIds[] = $templateId;
+
+            // version=1固定で10件（unique(template_id,version)）
+            DB::table('product_template_versions')->updateOrInsert(
+                ['template_id' => $templateId, 'version' => 1],
+                [
+                    'dsl_version' => '0.2',
+                    'dsl_json' => json_encode([
+                        'template_code' => $code,
+                        'mfdCount' => ['min' => 1, 'max' => 10],
+                        'note' => 'demo dsl',
+                        'default_config' => [
+                            'mfdCount' => ($i % 5) + 1,
+                            'tubeCount' => $i % 3,
+                        ],
+                    ], JSON_UNESCAPED_UNICODE),
+                    'active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+
+        // versionのid配列を返す
+        return DB::table('product_template_versions')
+            ->orderBy('id')
+            ->limit($n)
+            ->pluck('id')
+            ->all();
+    }
+
+    // -------------------------
+    // configurator_sessions
+    // -------------------------
+    private function seedConfiguratorSessions(int $n, array $accountIds, array $templateVersionIds): array
+    {
+        $ids = [];
+
+        for ($i = 0; $i < $n; $i++) {
+            $accountId = $accountIds[$i % count($accountIds)];
+            $tplVerId  = $templateVersionIds[$i % count($templateVersionIds)];
+
+            $mfdCount = ($i % 5) + 1; // 1..5
+            $fiberCount = $mfdCount + 1;
+
+            $fibers = [];
+            for ($k = 0; $k < $fiberCount; $k++) {
+                $len = 200 + ($k * 50) + ($i * 10);
+                $fibers[] = [
+                    'skuCode' => ($k % 2 === 0) ? 'FIBER_A' : 'FIBER_B',
+                    'lengthMm' => $len,
+                    'toleranceMm' => max(1, (int)round($len * 0.01)),
+                ];
+            }
+
+            $tubes = [];
+            $tubeCount = $i % 3; // 0..2
+            for ($t = 0; $t < $tubeCount; $t++) {
+                $tubes[] = [
+                    'skuCode' => ($t % 2 === 0) ? 'TUBE_X' : 'TUBE_Y',
+                    'anchor' => ['type' => 'MFD', 'index' => min($mfdCount - 1, $t)],
+                    'startOffsetMm' => ($t === 0) ? -10 : 30,
+                    'lengthMm' => 150 + $t * 20,
+                    'toleranceMm' => null,
+                ];
+            }
+
+            $config = [
+                'mfdCount' => $mfdCount,
+                'sleeveSkuCode' => ['SLEEVE_RECOTE', 'SLEEVE_REINFORCE', 'SLEEVE_SUS_PIPE'][$i % 3],
+                'fibers' => $fibers,
+                'tubeCount' => $tubeCount,
+                'tubes' => $tubes,
+                'connectors' => [
+                    'leftSkuCode' => ($i % 2 === 0) ? 'CONN_SC_UPC' : null,
+                    'rightSkuCode' => ($i % 3 === 0) ? 'CONN_SC_APC' : null,
+                ],
+            ];
+
+            $derived = [
+                'fiberCount' => $fiberCount,
+            ];
+
+            $validationErrors = []; // 初期は空（必要ならダミーも可）
+
+            $id = DB::table('configurator_sessions')->insertGetId([
+                'account_id' => $accountId,
+                'template_version_id' => $tplVerId,
+                'status' => 'DRAFT',
+                'config' => json_encode($config, JSON_UNESCAPED_UNICODE),
+                'derived' => json_encode($derived, JSON_UNESCAPED_UNICODE),
+                'validation_errors' => json_encode($validationErrors, JSON_UNESCAPED_UNICODE),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $ids[] = $id;
+        }
+
+        return $ids;
+    }
+}

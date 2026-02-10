@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="svg8" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 107.88 37.38">
+  <defs>
+    <pattern id="Strips4_1white-2" data-name="Strips4 1white-2" x="0" y="0" width="4.72" height="3.78" patternTransform="translate(9.18 -40.4) scale(18.9 -18.9)" patternUnits="userSpaceOnUse" viewBox="0 0 4.72 3.78">
+      <g>
+        <rect width="4.72" height="3.78" style="fill: none;"/>
+        <rect id="rect1780-7" y="-1.89" width="3.78" height="7.56" style="fill: #fff;"/>
+      </g>
+    </pattern>
+    <linearGradient id="_名称未設定グラデーション" data-name="名称未設定グラデーション" x1="-325.25" y1="124.87" x2="-325.25" y2="105.29" gradientTransform="translate(668.83 236.16) scale(1.89 -1.89)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#999" stop-opacity=".2"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#999" stop-opacity=".2"/>
+    </linearGradient>
+  </defs>
+  <g id="layer1">
+    <g id="g6254-3">
+      <path id="path2773-0" d="M74.32,12.41s33.37,2.21,33.37,2.21v8.31l-33.34,2.03" style="fill: #666; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2724-1" d="M14.95,13.96H1.89v9.46h13.06" style="fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2726-8" d="M1.89,13.96l-1.7,1.14v7.17l1.7,1.14" style="fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2728-6" d="M16.47,7.33v22.73l-1.53-1.53V8.85l1.53-1.53Z" style="fill: #e6e6e6; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <rect id="rect2733-05" x="16.47" y="7.33" width="14.46" height="22.73" style="fill: #e6e6e6; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <rect id="rect2735-9" x="30.93" y="5.86" width="6.32" height="25.66" style="fill: #ccc; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2757-5" d="M63.61,5.43h4.58l6.03,3.77v18.97l-6.03,3.77h-4.58" style="fill: #e6e6e6; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2759-3" d="M68.2,32v-4.53h-4.58" style="fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2761-19" d="M63.61,9.91h4.58v-4.42" style="fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2763-3" d="M68.2,9.91c6.93,6.43,7.08,11.32,0,17.56" style="fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2794-4" d="M46.63.19v37" style="fill: rgba(0, 27, 255, .47); stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <path id="path2755-6" d="M44.76,2.2l1.87-2.01h16.98v37h-16.98l-1.87-2" style="fill: url(#Strips4_1white-2); stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <rect id="rect2737-0" x="37.25" y="2.19" width="7.51" height="32.99" style="fill: #e6e6e6; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <rect id="rect2470-0" x="44.76" y="2.2" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      <g id="use6175-3">
+        <rect id="rect2470-0-2" data-name="rect2470-0" x="44.75" y="6.65" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <g id="use6177-96">
+        <rect id="rect2470-0-3" data-name="rect2470-0" x="44.75" y="11.11" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <g id="use6179-7">
+        <rect id="rect2470-0-4" data-name="rect2470-0" x="44.75" y="15.56" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <g id="use6181-4">
+        <rect id="rect2470-0-5" data-name="rect2470-0" x="44.75" y="20.02" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <g id="use6183-6">
+        <rect id="rect2470-0-6" data-name="rect2470-0" x="44.75" y="24.47" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <g id="use6185-3">
+        <rect id="rect2470-0-7" data-name="rect2470-0" x="44.75" y="28.92" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <g id="use6187-7">
+        <rect id="rect2470-0-8" data-name="rect2470-0" x="44.76" y="33.38" width="18.86" height="1.81" style="fill: #b3b3b3; isolation: isolate; opacity: .58; stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+      </g>
+      <path id="path2755-1-9" d="M44.76,2.19l1.87-2.01h16.98v37h-16.98l-1.87-2" style="fill: url(#_名称未設定グラデーション); stroke: #000; stroke-linecap: round; stroke-linejoin: round; stroke-width: .38px;"/>
+    </g>
+  </g>
+</svg>
