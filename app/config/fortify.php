@@ -134,6 +134,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Redirects
+    |--------------------------------------------------------------------------
+    |
+    | After login / register / logout etc, where to redirect.
+    | Fortify's fallback in this project returns a view instance, which breaks
+    | Location headers. Always use plain paths here.
+    |
+    */
+
+    'redirects' => [
+        'login' => '/',
+        'register' => '/',
+        'logout' => '/',
+        'password-confirmation' => '/',
+        'email-verification' => '/',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Features
     |--------------------------------------------------------------------------
     |

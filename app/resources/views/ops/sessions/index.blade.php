@@ -6,7 +6,7 @@
         <thead>
             <tr>
                 <th>ID</th>
-                <th>アカウントID</th>
+                <th>アカウント</th>
                 <th>顧客名</th>
                 <th>テンプレート版ID</th>
                 <th>ステータス</th>
@@ -18,7 +18,10 @@
             @foreach($sessions as $s)
                 <tr>
                     <td>{{ $s->id }}</td>
-                    <td>{{ $s->account_id }}</td>
+                    <td>
+                        <div>{{ $s->account_display_name ?? '' }}</div>
+                        <div class="muted">ID: {{ $s->account_id }}</div>
+                    </td>
                     <td>{{ $s->customer_names ?? '' }}</td>
                     <td>{{ $s->template_version_id }}</td>
                     <td>{{ $s->status }}</td>

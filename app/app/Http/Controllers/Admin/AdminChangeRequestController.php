@@ -49,7 +49,8 @@ final class AdminChangeRequestController extends Controller
             $errors = is_array($snapshot['validation_errors'] ?? null) ? $snapshot['validation_errors'] : [];
         }
 
-        $svg = $renderer->render($config, $derived, $errors);
+        $renderDerived = $this->augmentDerivedForRender($config, $derived);
+        $svg = $renderer->render($config, $renderDerived, $errors);
 
         return view('admin.change-requests.show', [
             'req' => $req,
@@ -90,7 +91,8 @@ final class AdminChangeRequestController extends Controller
             $errors = is_array($snapshot['validation_errors'] ?? null) ? $snapshot['validation_errors'] : [];
         }
 
-        $svg = $renderer->render($config, $derived, $errors);
+        $renderDerived = $this->augmentDerivedForRender($config, $derived);
+        $svg = $renderer->render($config, $renderDerived, $errors);
 
         return $pdfService->download(
             '編集承認リクエスト スナップショット',
@@ -220,6 +222,37 @@ final class AdminChangeRequestController extends Controller
         ];
 
         $this->logAudit($actorId, 'CHANGE_REQUEST_APPROVED', 'quote', $quoteId, $before, $after);
+    }
+
+    private function augmentDerivedForRender(array $config, array $derived): array
+    {
+        if (empty($derived['skuNameByCode'])) {
+            $derived['skuNameByCode'] = $this->buildSkuNameMap();
+        }
+        if (empty($derived['skuSvgByCode'])) {
+            $derived['skuSvgByCode'] = $this->buildSkuSvgMap();
+        }
+        return $derived;
+    }
+
+    private function buildSkuNameMap(): array
+    {
+        return DB::table('skus')->pluck('name', 'sku_code')->all();
+    }
+
+    private function buildSkuSvgMap(): array
+    {
+        $dir = public_path('sku-svg');
+        if (!is_dir($dir)) return [];
+
+        $map = [];
+        $files = glob($dir . '/*.svg') ?: [];
+        foreach ($files as $path) {
+            $code = basename($path, '.svg');
+            if ($code === '') continue;
+            $map[$code] = '/sku-svg/' . $code . '.svg';
+        }
+        return $map;
     }
 
     private function replaceQuoteItems(int $quoteId, array $bom, array $pricingItems): void

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\ConfiguratorSession;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Admin\AdminSkuController;
+use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\AdminPriceBookController;
 use App\Http\Controllers\Admin\AdminPriceBookItemController;
 use App\Http\Controllers\Admin\AdminTemplateController;
@@ -97,6 +98,10 @@ Route::get('/quotes/{id}/snapshot.pdf', function ($id, SvgRenderer $renderer, Sn
 })->middleware('auth')->name('quotes.snapshot.pdf');
 
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
+    Route::get('/accounts', [AdminAccountController::class, 'index'])->name('admin.accounts.index');
+    Route::get('/accounts/{id}/edit', [AdminAccountController::class, 'edit'])->name('admin.accounts.edit');
+    Route::put('/accounts/{id}', [AdminAccountController::class, 'update'])->name('admin.accounts.update');
+
     Route::get('/skus', [AdminSkuController::class, 'index'])->name('admin.skus.index');
     Route::get('/skus/create', [AdminSkuController::class, 'create'])->name('admin.skus.create');
     Route::post('/skus', [AdminSkuController::class, 'store'])->name('admin.skus.store');

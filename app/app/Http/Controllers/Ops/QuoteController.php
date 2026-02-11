@@ -14,14 +14,17 @@ final class QuoteController extends Controller
     {
         $customerNames = DB::table('account_user as au')
             ->join('users as u', 'u.id', '=', 'au.user_id')
-            ->whereColumn('au.account_id', 'quotes.account_id')
+            ->whereColumn('au.account_id', 'q.account_id')
             ->where('au.role', 'customer')
             ->selectRaw("string_agg(u.name, ', ')");
 
-        $quotes = DB::table('quotes')
-            ->select('quotes.*')
+        $quotes = DB::table('quotes as q')
+            ->join('accounts as a', 'a.id', '=', 'q.account_id')
+            ->select('q.*')
+            ->selectRaw("coalesce(nullif(a.internal_name, ''), a.name) as account_display_name")
+            ->addSelect('a.name as account_name', 'a.internal_name as account_internal_name')
             ->selectSub($customerNames, 'customer_names')
-            ->orderBy('id', 'desc')
+            ->orderBy('q.id', 'desc')
             ->limit(200)
             ->get();
 
@@ -32,14 +35,17 @@ final class QuoteController extends Controller
     {
         $customerNames = DB::table('account_user as au')
             ->join('users as u', 'u.id', '=', 'au.user_id')
-            ->whereColumn('au.account_id', 'quotes.account_id')
+            ->whereColumn('au.account_id', 'q.account_id')
             ->where('au.role', 'customer')
             ->selectRaw("string_agg(u.name, ', ')");
 
-        $quote = DB::table('quotes')
-            ->select('quotes.*')
+        $quote = DB::table('quotes as q')
+            ->join('accounts as a', 'a.id', '=', 'q.account_id')
+            ->select('q.*')
+            ->selectRaw("coalesce(nullif(a.internal_name, ''), a.name) as account_display_name")
+            ->addSelect('a.name as account_name', 'a.internal_name as account_internal_name')
             ->selectSub($customerNames, 'customer_names')
-            ->where('id', $id)
+            ->where('q.id', $id)
             ->first();
         if (!$quote) abort(404);
 

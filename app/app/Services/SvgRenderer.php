@@ -119,10 +119,20 @@ final class SvgRenderer
         $connBodyW  = $connW - $connTipW;
         $connSvgW   = $connW * 2;
         $connSvgH   = 36 * 2; // 既存の36を基準にさらに2倍
-        $tubeLabelY = $axisY - ($tubeH / 2) - 32;
-        $mfdLabelY  = $axisY - 80;
-        $labelY     = $axisY + 96;
-        $connLabelY = $axisY + 118;
+        // ラベル配置（ファイバ中心を基準に上下階層）
+        // 下側: (1)ファイバ寸法 (2)ファイバSKU
+        // 上側: (1)チューブ寸法/開始位置 (2)チューブSKU (3)MFD変換SKU/コネクタSKU
+        $belowDimY = $axisY + 12;
+        $belowLabelY = $belowDimY + 12;
+        $belowLabelY2 = $belowLabelY + 18;
+        $belowLabelY3 = $belowLabelY2 + 18;
+
+        $aboveDimY = $axisY - 12;
+        $aboveOffsetDimY = $aboveDimY - 18;
+        $tubeLabelY = $aboveDimY - 36;
+        $mfdLabelY  = $tubeLabelY - 18;
+        $labelY     = $belowLabelY2;
+        $connLabelY = $belowLabelY3;
 
         $dense = $fiberCount >= 6 || $mfdCount >= 6;
         $labelSize = $dense ? 12 : 13;
@@ -196,11 +206,12 @@ final class SvgRenderer
                 $svg[] = '<rect x="'.$x.'" y="'.$y.'" width="'.$w.'" height="'.$fiberH.'" class="'.$cls.'" id="fiber-'.$i.'" data-path="fibers.'.$i.'" />';
             }
             if ($fiberSvg) {
-                $svg[] = '<image href="'.$esc($fiberSvg).'" x="'.$x.'" y="'.$y.'" width="'.$w.'" height="'.$fiberSvgH.'" opacity="0.9" preserveAspectRatio="xMidYMid meet" class="fiber-img" />';
+                // 線系SVGは比率維持だと幅が縮むため、PDFでも端まで届くようにストレッチ
+                $svg[] = '<image href="'.$esc($fiberSvg).'" x="'.$x.'" y="'.$y.'" width="'.$w.'" height="'.$fiberSvgH.'" opacity="0.9" preserveAspectRatio="none" class="fiber-img" />';
             }
 
             if ($showFiberDims) {
-                $dimY = $y + $fiberH + 10;
+                $dimY = $belowDimY;
                 $svg[] = '<line x1="'.$x.'" y1="'.$dimY.'" x2="'.($x+$w).'" y2="'.$dimY.'" class="dim" />';
                 $svg[] = $this->arrowHead($x, $dimY, true);
                 $svg[] = $this->arrowHead($x + $w, $dimY, false);
@@ -264,7 +275,7 @@ final class SvgRenderer
             }
 
             if ($showTubeDims) {
-                $dimY = $tubeY - 6;
+                $dimY = $aboveDimY;
                 $svg[] = '<line x1="'.$x.'" y1="'.$dimY.'" x2="'.($x+$w).'" y2="'.$dimY.'" class="dim" />';
                 $svg[] = $this->arrowHead($x, $dimY, true);
                 $svg[] = $this->arrowHead($x + $w, $dimY, false);
@@ -276,7 +287,7 @@ final class SvgRenderer
                 if ($offsetMm > 0) {
                     $segX = $margin + $segStart[$targetIdx] * $scale;
                     $offsetW = max(1.0, $startMm * $ratio * $scale);
-                    $offsetY = $dimY - 12;
+                    $offsetY = $aboveOffsetDimY;
                     $svg[] = '<line x1="'.$segX.'" y1="'.$offsetY.'" x2="'.($segX + $offsetW).'" y2="'.$offsetY.'" class="dim" />';
                     $svg[] = $this->arrowHead($segX, $offsetY, true);
                     $svg[] = $this->arrowHead($segX + $offsetW, $offsetY, false);
@@ -297,13 +308,11 @@ final class SvgRenderer
 
             $x = $margin + $mm * $scale;
             $cls = 'marker'.($targets['mfd'] ? ' err' : '');
-            $svg[] = '<line x1="'.$x.'" y1="'.($axisY-36).'" x2="'.$x.'" y2="'.($axisY+36).'" class="'.$cls.'" id="mfd-'.$k.'" data-path="mfd.'.$k.'" />';
-            $svg[] = '<text x="'.$x.'" y="'.$mfdLabelY.'" class="small'.($targets['mfd'] ? ' errText' : '').'" text-anchor="middle">MFD['.$esc($k).']</text>';
+            $svg[] = '<line x1="'.$x.'" y1="'.($axisY-36).'" x2="'.$x.'" y2="'.($axisY+36).'" class="'.$cls.'" id="mfd-'.$k.'" data-path="mfd.'.$k.'" stroke-dasharray="4 4" stroke="#9ca3af" opacity="0.7" />';
             $sleeveCode = $sleeves[$k]['skuCode'] ?? null;
             $sleeveName = $sleeveCode ? ($skuNameByCode[$sleeveCode] ?? null) : null;
-            if ($sleeveName) {
-                $svg[] = '<text x="'.$x.'" y="'.($mfdLabelY + 14).'" class="small" text-anchor="middle">'.$esc($sleeveName).'</text>';
-            }
+            $mfdLabel = $sleeveName ? ('MFD['.$k.']: '.$sleeveName) : ('MFD['.$k.']');
+            $svg[] = '<text x="'.$x.'" y="'.$mfdLabelY.'" class="small'.($targets['mfd'] ? ' errText' : '').'" text-anchor="middle">'.$esc($mfdLabel).'</text>';
             $sleeveSvg = $sleeveCode ? ($skuSvgByCode[$sleeveCode] ?? null) : null;
             if ($sleeveSvg) {
                 $sleeveW = 72;

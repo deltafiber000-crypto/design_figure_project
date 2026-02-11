@@ -20,6 +20,7 @@
 </head>
 <body>
     <nav>
+        <a href="{{ route('admin.accounts.index') }}">アカウント</a>
         <a href="{{ route('ops.sessions.index') }}">セッション参照</a>
         <a href="{{ route('ops.quotes.index') }}">見積参照</a>
         <a href="{{ route('admin.skus.index') }}">商品パーツ(SKU)</a>

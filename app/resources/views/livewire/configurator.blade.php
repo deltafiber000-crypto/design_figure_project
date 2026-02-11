@@ -1,7 +1,7 @@
 <div>
     <div style="display:flex; gap:16px; padding:16px; align-items:flex-start;">
         <div style="width: 250px; max-height: calc(100vh - 32px); overflow-y: auto; padding-right: 8px;">
-            <div style="margin-bottom:12px;">
+            {{-- <div style="margin-bottom:12px;">
                 <label>テンプレ選択</label>
                 <select wire:model.live.debounce.200ms="templateVersionId" style="width:100%;">
                     <option value="">（未選択）</option>
@@ -9,7 +9,7 @@
                         <option value="{{ $opt['id'] }}">{{ $opt['label'] }}</option>
                     @endforeach
                 </select>
-            </div>
+            </div> --}}
 
             <h1 style="font-weight:700;">MFD変換</h1>
             <div style="margin-top:12px;">

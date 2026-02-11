@@ -9,9 +9,14 @@
 
     <div class="row" style="margin:8px 0;">
         <div class="col">ID: {{ $quote->id }}</div>
-        <div class="col">アカウントID: {{ $quote->account_id }}</div>
+        <div class="col">アカウント（表示名）: {{ $quote->account_display_name ?? '' }}</div>
         <div class="col">顧客: {{ $quote->customer_names ?? '' }}</div>
         <div class="col">ステータス: {{ $quote->status }}</div>
+    </div>
+    <div class="row" style="margin:8px 0;">
+        <div class="col">アカウント名: {{ $quote->account_name ?? '' }}</div>
+        <div class="col">社内呼称: {{ $quote->account_internal_name ?? '-' }}</div>
+        <div class="col">アカウントID: {{ $quote->account_id }}</div>
     </div>
 
     @php

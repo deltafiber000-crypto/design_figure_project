@@ -119,7 +119,24 @@ final class DslEngine
                 continue;
             }
 
-            // 開始・終了（mm）
+            // 4) targetFiberIndex がある場合は、そのファイバー区間を基準に判定（描画と整合）
+            $targetIdx = $tube['targetFiberIndex'] ?? null;
+            if (is_numeric($targetIdx)) {
+                $ti = (int)$targetIdx;
+                if ($ti >= 0 && $ti < $fiberCount) {
+                    $segLen = $segLens[$ti] ?? $fallbackPerSeg;
+                    // 描画側の挙動に合わせて開始位置はクランプ
+                    $startMm = max(0.0, min($segLen, $offset));
+                    $endMm = $startMm + $lenMm;
+
+                    if ($endMm < 0 || $endMm > $segLen) {
+                        $errors[] = ['path' => "tubes.$j.lengthMm", 'message' => "終了位置が範囲外です（0〜{$segLen}mm）"];
+                    }
+                    continue;
+                }
+            }
+
+            // 開始・終了（mm）: anchor（MFD）基準（targetFiberIndexが不正な場合のみ）
             $anchorMm = $mfdPos[$aIdx] ?? 0.0;
             $startMm = $anchorMm + $offset;
             $endMm = $startMm + $lenMm;

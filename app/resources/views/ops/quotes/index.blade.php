@@ -6,7 +6,7 @@
         <thead>
             <tr>
                 <th>ID</th>
-                <th>アカウントID</th>
+                <th>アカウント</th>
                 <th>顧客名</th>
                 <th>ステータス</th>
                 <th>通貨</th>
@@ -19,7 +19,10 @@
             @foreach($quotes as $q)
                 <tr>
                     <td>{{ $q->id }}</td>
-                    <td>{{ $q->account_id }}</td>
+                    <td>
+                        <div>{{ $q->account_display_name ?? '' }}</div>
+                        <div class="muted">ID: {{ $q->account_id }}</div>
+                    </td>
                     <td>{{ $q->customer_names ?? '' }}</td>
                     <td>{{ $q->status }}</td>
                     <td>{{ $q->currency }}</td>

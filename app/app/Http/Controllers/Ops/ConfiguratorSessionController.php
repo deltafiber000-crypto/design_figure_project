@@ -13,14 +13,17 @@ final class ConfiguratorSessionController extends Controller
     {
         $customerNames = DB::table('account_user as au')
             ->join('users as u', 'u.id', '=', 'au.user_id')
-            ->whereColumn('au.account_id', 'configurator_sessions.account_id')
+            ->whereColumn('au.account_id', 'cs.account_id')
             ->where('au.role', 'customer')
             ->selectRaw("string_agg(u.name, ', ')");
 
-        $sessions = DB::table('configurator_sessions')
-            ->select('configurator_sessions.*')
+        $sessions = DB::table('configurator_sessions as cs')
+            ->join('accounts as a', 'a.id', '=', 'cs.account_id')
+            ->select('cs.*')
+            ->selectRaw("coalesce(nullif(a.internal_name, ''), a.name) as account_display_name")
+            ->addSelect('a.name as account_name', 'a.internal_name as account_internal_name')
             ->selectSub($customerNames, 'customer_names')
-            ->orderBy('id', 'desc')
+            ->orderBy('cs.id', 'desc')
             ->limit(200)
             ->get();
 
@@ -31,14 +34,17 @@ final class ConfiguratorSessionController extends Controller
     {
         $customerNames = DB::table('account_user as au')
             ->join('users as u', 'u.id', '=', 'au.user_id')
-            ->whereColumn('au.account_id', 'configurator_sessions.account_id')
+            ->whereColumn('au.account_id', 'cs.account_id')
             ->where('au.role', 'customer')
             ->selectRaw("string_agg(u.name, ', ')");
 
-        $session = DB::table('configurator_sessions')
-            ->select('configurator_sessions.*')
+        $session = DB::table('configurator_sessions as cs')
+            ->join('accounts as a', 'a.id', '=', 'cs.account_id')
+            ->select('cs.*')
+            ->selectRaw("coalesce(nullif(a.internal_name, ''), a.name) as account_display_name")
+            ->addSelect('a.name as account_name', 'a.internal_name as account_internal_name')
             ->selectSub($customerNames, 'customer_names')
-            ->where('id', $id)
+            ->where('cs.id', $id)
             ->first();
         if (!$session) abort(404);
 

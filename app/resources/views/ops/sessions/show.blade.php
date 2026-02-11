@@ -8,10 +8,15 @@
 
     <div class="row" style="margin:8px 0;">
         <div class="col">ID: {{ $session->id }}</div>
-        <div class="col">アカウントID: {{ $session->account_id }}</div>
+        <div class="col">アカウント（表示名）: {{ $session->account_display_name ?? '' }}</div>
         <div class="col">顧客: {{ $session->customer_names ?? '' }}</div>
         <div class="col">テンプレート版ID: {{ $session->template_version_id }}</div>
         <div class="col">ステータス: {{ $session->status }}</div>
+    </div>
+    <div class="row" style="margin:8px 0;">
+        <div class="col">アカウント名: {{ $session->account_name ?? '' }}</div>
+        <div class="col">社内呼称: {{ $session->account_internal_name ?? '-' }}</div>
+        <div class="col">アカウントID: {{ $session->account_id }}</div>
     </div>
 
     @php

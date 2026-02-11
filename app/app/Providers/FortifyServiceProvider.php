@@ -31,13 +31,13 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::loginView(function () {
             if (auth()->check()) {
-                return redirect(view('landing'));
+                return redirect('/');
             }
             return view('auth.login');
         });
         Fortify::registerView(function () {
            if (auth()->check()) {
-                return redirect(view('landing'));
+                return redirect('/');
             }
            return view('auth.register');
         });
