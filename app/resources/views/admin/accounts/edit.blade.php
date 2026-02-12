@@ -7,7 +7,13 @@
         <div class="col">ID: {{ $account->id }}</div>
         <div class="col">種別: {{ $account->account_type }}</div>
     </div>
-    <div style="margin:8px 0;">アカウント名: {{ $account->name }}</div>
+    <div style="margin:8px 0;">アカウント登録名: {{ $account->name }}</div>
+    <div style="margin:8px 0;">
+        権限サマリー:
+        admin={{ $roleCounts['admin'] ?? 0 }}
+        / sales={{ $roleCounts['sales'] ?? 0 }}
+        / customer={{ $roleCounts['customer'] ?? 0 }}
+    </div>
 
     <form method="POST" action="{{ route('admin.accounts.update', $account->id) }}">
         @csrf
@@ -15,10 +21,31 @@
         <table>
             <tbody>
                 <tr>
-                    <th>社内呼称（あだ名/メモ）</th>
+                    <th>種別</th>
+                    <td>
+                        <select name="account_type">
+                            <option value="B2B" @selected(old('account_type', $account->account_type) === 'B2B')>B2B</option>
+                            <option value="B2C" @selected(old('account_type', $account->account_type) === 'B2C')>B2C</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>表示名（社内呼称/所属企業など）</th>
                     <td>
                         <input type="text" name="internal_name" value="{{ old('internal_name', $account->internal_name) }}">
-                        <div class="muted">未入力の場合は一覧でアカウント名を表示します。</div>
+                        <div class="muted">未入力の場合は一覧でアカウント登録名を表示します。</div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>担当者</th>
+                    <td>
+                        <input type="text" name="assignee_name" value="{{ old('assignee_name', $account->assignee_name) }}" placeholder="例: 営業1課 田中">
+                    </td>
+                </tr>
+                <tr>
+                    <th>メモ</th>
+                    <td>
+                        <textarea name="memo" rows="6" style="width:100%;">{{ old('memo', $account->memo) }}</textarea>
                     </td>
                 </tr>
             </tbody>
@@ -28,4 +55,32 @@
             <a href="{{ route('admin.accounts.index') }}">一覧へ戻る</a>
         </div>
     </form>
+
+    <h2 style="margin-top:16px;">権限設定（account_user）</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>user_id</th>
+                <th>ユーザー名</th>
+                <th>メール</th>
+                <th>role</th>
+                <th>付与日時</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($members as $m)
+                <tr>
+                    <td>{{ $m->user_id }}</td>
+                    <td>{{ $m->user_name }}</td>
+                    <td>{{ $m->user_email }}</td>
+                    <td>{{ $m->role }}</td>
+                    <td>{{ $m->assigned_at }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="5">このアカウントに紐づくユーザーは未設定です。</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
 @endsection

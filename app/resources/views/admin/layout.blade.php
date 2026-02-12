@@ -20,14 +20,14 @@
 </head>
 <body>
     <nav>
-        <a href="{{ route('admin.accounts.index') }}">アカウント</a>
+        <a href="{{ route('admin.accounts.index') }}">アカウント編集</a>
         <a href="{{ route('ops.sessions.index') }}">セッション参照</a>
         <a href="{{ route('ops.quotes.index') }}">見積参照</a>
         <a href="{{ route('admin.skus.index') }}">商品パーツ(SKU)</a>
         <a href="{{ route('admin.price-books.index') }}">パーツ・納品物価格表</a>
         <a href="{{ route('admin.templates.index') }}">納品物ルールテンプレ(DSL)</a>
-        <a href="{{ route('admin.change-requests.index') }}">承認リクエスト</a>
-        <a href="{{ route('admin.audit-logs.index') }}">監査ログ</a>
+        <a href="{{ route('admin.change-requests.index') }}">見積編集承認リクエスト</a>
+        <a href="{{ route('admin.audit-logs.index') }}">全作業監査ログ</a>
     </nav>
 
     @if(session('status'))

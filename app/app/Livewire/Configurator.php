@@ -147,9 +147,10 @@ final class Configurator extends Component
                 [
                     'skuCode' => 'TUBE_0.9_LOOSE',
                     'anchor' => ['type' => 'MFD', 'index' => 0],
-                    'targetFiberIndex' => 0,
-                    'startOffsetMm' => -10,
-                    'lengthMm' => 200,
+                    'startFiberIndex' => 0,
+                    'endFiberIndex' => 0,
+                    'startOffsetMm' => 0,
+                    'endOffsetMm' => 200,
                     'toleranceMm' => null,
                     'toleranceAuto' => true,
                 ],
@@ -470,10 +471,17 @@ final class Configurator extends Component
             ],
         ];
 
+        $baseSnapshot = DB::table('quotes')->where('id', $this->quoteEditId)->value('snapshot');
+        $baseSnapshot = is_array($baseSnapshot) ? $baseSnapshot : json_decode((string)$baseSnapshot, true);
+        if (!is_array($baseSnapshot)) $baseSnapshot = [];
+
         DB::table('change_requests')->insert([
             'entity_type' => 'quote',
             'entity_id' => $this->quoteEditId,
-            'proposed_json' => json_encode(['snapshot' => $snapshot], JSON_UNESCAPED_UNICODE),
+            'proposed_json' => json_encode([
+                'snapshot' => $snapshot,
+                'base_snapshot' => $baseSnapshot,
+            ], JSON_UNESCAPED_UNICODE),
             'status' => 'PENDING',
             'requested_by' => (int)auth()->id(),
             'comment' => 'Configuratorからの変更申請',
@@ -525,7 +533,10 @@ final class Configurator extends Component
                 'skuCode'=>null,
                 'anchor'=>['type'=>'MFD','index'=>0],
                 'targetFiberIndex'=>0,
+                'startFiberIndex'=>0,
+                'endFiberIndex'=>0,
                 'startOffsetMm'=>0,
+                'endOffsetMm'=>null,
                 'lengthMm'=>null,
                 'toleranceMm'=>null,
                 'toleranceAuto'=>true,
@@ -541,6 +552,9 @@ final class Configurator extends Component
         // 2.5) ±誤差の自動算出（未入力なら自動埋め）
         $this->applyToleranceDefaultsToFibers();
         $this->applyToleranceDefaultsToTubes();
+
+        // 2.5.1) 旧フィールド互換（targetFiberIndex/lengthMm → start/end）
+        $this->migrateTubeStartEndFields();
 
         // 2.6) totalLengthMm を計算（未入力は暫定100mmで計算）
         //      長すぎる区間は「表示用に上限を設ける」 + 挿絵で示す
@@ -705,6 +719,32 @@ final class Configurator extends Component
                     $tubes[$j]['toleranceMm'] = $computed;
                     $tubes[$j]['toleranceAuto'] = true;
                 }
+            }
+        }
+
+        $this->config['tubes'] = $tubes;
+    }
+
+    private function migrateTubeStartEndFields(): void
+    {
+        $tubes = $this->config['tubes'] ?? [];
+        if (!is_array($tubes)) return;
+
+        foreach ($tubes as $j => $t) {
+            if (!is_array($t)) continue;
+
+            $hasStart = array_key_exists('startFiberIndex', $t) || array_key_exists('endFiberIndex', $t) || array_key_exists('endOffsetMm', $t);
+            if ($hasStart) continue;
+
+            $target = $t['targetFiberIndex'] ?? 0;
+            $startOffset = $t['startOffsetMm'] ?? 0;
+            $len = $t['lengthMm'] ?? null;
+
+            $tubes[$j]['startFiberIndex'] = $target;
+            $tubes[$j]['endFiberIndex'] = $target;
+            $tubes[$j]['startOffsetMm'] = $startOffset;
+            if (is_numeric($len)) {
+                $tubes[$j]['endOffsetMm'] = (float)$startOffset + (float)$len;
             }
         }
 

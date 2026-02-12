@@ -28,12 +28,26 @@
                 </select>
             </div>
             <div class="col">
-                <label>connectors.leftSkuCode</label>
-                <input type="text" name="connectors_left" value="{{ old('connectors_left', $simple['connectors_left'] ?? '') }}">
+                <label>コネクタ左端</label>
+                <select name="connectors_left">
+                    <option value="">（未指定）</option>
+                    @foreach(($connectorOptions ?? []) as $opt)
+                        <option value="{{ $opt->sku_code }}" @if(old('connectors_left', $simple['connectors_left'] ?? '') === $opt->sku_code) selected @endif>
+                            {{ $opt->name }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
             <div class="col">
-                <label>connectors.rightSkuCode</label>
-                <input type="text" name="connectors_right" value="{{ old('connectors_right', $simple['connectors_right'] ?? '') }}">
+                <label>コネクタ右端</label>
+                <select name="connectors_right">
+                    <option value="">（未指定）</option>
+                    @foreach(($connectorOptions ?? []) as $opt)
+                        <option value="{{ $opt->sku_code }}" @if(old('connectors_right', $simple['connectors_right'] ?? '') === $opt->sku_code) selected @endif>
+                            {{ $opt->name }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
         </div>
         <div style="margin-top:8px;">

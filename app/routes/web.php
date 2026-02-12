@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AdminTemplateVersionController;
 use App\Http\Controllers\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Admin\AdminAuditLogController;
 use App\Http\Controllers\Ops\ConfiguratorSessionController;
+use App\Http\Controllers\Ops\ChangeRequestController as OpsChangeRequestController;
 use App\Http\Controllers\Ops\QuoteController;
 use App\Services\SnapshotPdfService;
 
@@ -47,10 +48,23 @@ Route::post('/configurator/autosave', function (Request $request) {
 })->name('configurator.autosave');
 
 Route::get('/quotes/{id}', function ($id, SvgRenderer $renderer) {
-    $quote = DB::table('quotes')->where('id', (int)$id)->first();
+    $quote = DB::table('quotes as q')
+        ->leftJoin('accounts as a', 'a.id', '=', 'q.account_id')
+        ->select('q.*')
+        ->addSelect('a.name as account_name', 'a.assignee_name as account_assignee_name')
+        ->where('q.id', (int)$id)
+        ->first();
     if (!$quote) {
         abort(404);
     }
+
+    $accountMembers = DB::table('account_user as au')
+        ->join('users as u', 'u.id', '=', 'au.user_id')
+        ->where('au.account_id', (int)$quote->account_id)
+        ->select('u.name as user_name', 'u.email as user_email', 'au.role')
+        ->orderByRaw("case au.role when 'admin' then 1 when 'sales' then 2 else 3 end")
+        ->orderBy('u.id')
+        ->get();
 
     $snapshot = json_decode($quote->snapshot ?? '', true);
     if (!is_array($snapshot)) $snapshot = [];
@@ -69,6 +83,7 @@ Route::get('/quotes/{id}', function ($id, SvgRenderer $renderer) {
 
     return view('quotes.show', [
         'quote' => $quote,
+        'accountMembers' => $accountMembers,
         'snapshot' => $snapshot,
         'svg' => $svg,
         'totals' => $totals,
@@ -76,7 +91,12 @@ Route::get('/quotes/{id}', function ($id, SvgRenderer $renderer) {
 })->middleware('auth')->name('quotes.show');
 
 Route::get('/quotes/{id}/snapshot.pdf', function ($id, SvgRenderer $renderer, SnapshotPdfService $pdfService) {
-    $quote = DB::table('quotes')->where('id', (int)$id)->first();
+    $quote = DB::table('quotes as q')
+        ->leftJoin('accounts as a', 'a.id', '=', 'q.account_id')
+        ->select('q.*')
+        ->addSelect('a.name as account_name', 'a.assignee_name as account_assignee_name')
+        ->where('q.id', (int)$id)
+        ->first();
     if (!$quote) {
         abort(404);
     }
@@ -87,14 +107,30 @@ Route::get('/quotes/{id}/snapshot.pdf', function ($id, SvgRenderer $renderer, Sn
     $config = $snapshot['config'] ?? [];
     $derived = $snapshot['derived'] ?? [];
     $errors = $snapshot['validation_errors'] ?? [];
+    $totals = $snapshot['totals'] ?? [
+        'subtotal' => (float)($quote->subtotal ?? 0),
+        'tax' => (float)($quote->tax_total ?? 0),
+        'total' => (float)($quote->total ?? 0),
+    ];
 
     $svg = $renderer->render($config, $derived, $errors);
 
-    return $pdfService->download(
-        '見積 スナップショット',
-        $svg,
-        "quote_{$id}_snapshot.pdf"
+    $filename = $pdfService->buildFilename(
+        'quote',
+        (int)$quote->account_id,
+        (int)($snapshot['template_version_id'] ?? 0),
+        $snapshot,
+        $config,
+        $derived,
+        (string)$quote->updated_at
     );
+
+    return $pdfService->downloadQuoteUi([
+        'quote' => $quote,
+        'snapshot' => $snapshot,
+        'svg' => $svg,
+        'totals' => $totals,
+    ], $filename);
 })->middleware('auth')->name('quotes.snapshot.pdf');
 
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
@@ -142,6 +178,9 @@ Route::middleware(['auth', 'role:admin,sales'])->prefix('ops')->group(function (
     Route::get('/configurator-sessions', [ConfiguratorSessionController::class, 'index'])->name('ops.sessions.index');
     Route::get('/configurator-sessions/{id}', [ConfiguratorSessionController::class, 'show'])->name('ops.sessions.show');
     Route::get('/configurator-sessions/{id}/snapshot.pdf', [ConfiguratorSessionController::class, 'downloadSnapshotPdf'])->name('ops.sessions.snapshot.pdf');
+
+    Route::get('/change-requests/{id}', [OpsChangeRequestController::class, 'show'])->name('ops.change-requests.show');
+    Route::get('/change-requests/{id}/snapshot.pdf', [OpsChangeRequestController::class, 'downloadSnapshotPdf'])->name('ops.change-requests.snapshot.pdf');
 
     Route::get('/quotes', [QuoteController::class, 'index'])->name('ops.quotes.index');
     Route::get('/quotes/{id}', [QuoteController::class, 'show'])->name('ops.quotes.show');

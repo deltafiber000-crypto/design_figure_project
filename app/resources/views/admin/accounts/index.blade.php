@@ -1,7 +1,7 @@
 @extends('admin.layout')
 
 @section('content')
-    <h1>アカウント</h1>
+    <h1>アカウント一覧</h1>
 
     <form method="GET" action="{{ route('admin.accounts.index') }}" style="margin:12px 0;">
         <div class="row">
@@ -18,10 +18,13 @@
         <thead>
             <tr>
                 <th>ID</th>
-                <th>表示名</th>
-                <th>アカウント名</th>
-                <th>社内呼称</th>
+                <th>アカウント表示名</th>
+                <th>アカウント登録名</th>
                 <th>種別</th>
+                <th>権限設定</th>
+                <th>担当者</th>
+                <th>メモ</th>
+                <th>作成日</th>
                 <th>更新日</th>
                 <th></th>
             </tr>
@@ -35,8 +38,14 @@
                     <td>{{ $a->id }}</td>
                     <td>{{ $display }}</td>
                     <td>{{ $a->name }}</td>
-                    <td>{{ $a->internal_name ?? '-' }}</td>
                     <td>{{ $a->account_type }}</td>
+                    <td>
+                        <div>{{ $a->role_summary ?? 'admin:0 / sales:0 / customer:0' }}</div>
+                        <div class="muted">{{ $a->member_summary ?? '-' }}</div>
+                    </td>
+                    <td>{{ $a->assignee_name ?? '-' }}</td>
+                    <td>{{ $a->memo ?? '-' }}</td>
+                    <td>{{ $a->created_at }}</td>
                     <td>{{ $a->updated_at }}</td>
                     <td><a href="{{ route('admin.accounts.edit', $a->id) }}">編集</a></td>
                 </tr>

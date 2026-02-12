@@ -43,7 +43,7 @@
             <h2 style="font-weight:700;">各ファイバ</h2>
             @foreach(($config['fibers'] ?? []) as $i => $f)
                 <div wire:key="fiber-row-{{ $f['key'] ?? $i }}" style="border:1px solid #ddd; padding:8px; margin-top:8px;">
-                    <div>ファイバ[{{ $i + 1 }}]</div>
+                    <div>ファイバ[{{ $i }}]</div>
                     <select wire:model.live.debounce.500ms="config.fibers.{{ $i }}.skuCode" style="width:100%;">
                         <option value="">（未選択）</option>
                         @foreach(($skuOptions['fiber'] ?? []) as $opt)
@@ -62,7 +62,7 @@
             <h2 style="font-weight:700;">各チューブ</h2>
             @foreach(($config['tubes'] ?? []) as $j => $t)
                 <div wire:key="tube-row-{{ $t['key'] ?? $j }}" style="border:1px solid #ddd; padding:8px; margin-top:8px;">
-                    <div>チューブ[{{ $j + 1 }}]</div>
+                    <div>チューブ[{{ $j }}]</div>
 
                     <select wire:model.live.debounce.500ms="config.tubes.{{ $j }}.skuCode" style="width:100%;">
                         <option value="">（未選択）</option>
@@ -71,14 +71,17 @@
                         @endforeach
                     </select>
 
-                    <label>装着するファイバ番号</label>
-                    <input type="number" min="0" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.targetFiberIndex" style="width:100%;">
+                    <label>開始ファイバ番号</label>
+                    <input type="number" min="0" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.startFiberIndex" style="width:100%;">
 
-                    <label>チューブ左端開始位置[mm]</label>
+                    <label>開始オフセット[mm]</label>
                     <input type="number" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.startOffsetMm" style="width:100%;">
 
-                    <label>長さ[mm]</label>
-                    <input type="number" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.lengthMm" style="width:100%;">
+                    <label>終了ファイバ番号</label>
+                    <input type="number" min="0" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.endFiberIndex" style="width:100%;">
+
+                    <label>終了オフセット[mm]</label>
+                    <input type="number" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.endOffsetMm" style="width:100%;">
 
                     <label>希望許容誤差[mm]</label>
                     <input type="number" wire:model.live.debounce.1000ms="config.tubes.{{ $j }}.toleranceMm" style="width:100%;">

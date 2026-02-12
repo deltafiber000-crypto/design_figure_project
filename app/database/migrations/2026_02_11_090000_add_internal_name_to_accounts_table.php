@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::table('accounts', function (Blueprint $table) {
             $table->string('internal_name')->nullable()->after('name');
+            $table->text('memo')->nullable();
         });
     }
 
@@ -17,6 +18,7 @@ return new class extends Migration
     {
         Schema::table('accounts', function (Blueprint $table) {
             $table->dropColumn('internal_name');
+            $table->dropColumn('memo');
         });
     }
 };

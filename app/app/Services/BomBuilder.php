@@ -151,12 +151,17 @@ final class BomBuilder
         foreach ($tubes as $i => $t) {
             $skuCode = $t['skuCode'] ?? null;
             if ($this->isEmpty($skuCode)) continue;
+            $tubeLen = $this->resolveTubeLengthMm($t, $config);
             $items[] = $this->normalizeItem([
                 'sku_code' => (string)$skuCode,
                 'quantity' => 1,
                 'options' => [
+                    'startFiberIndex' => $t['startFiberIndex'] ?? null,
+                    'startOffsetMm' => $t['startOffsetMm'] ?? null,
+                    'endFiberIndex' => $t['endFiberIndex'] ?? null,
+                    'endOffsetMm' => $t['endOffsetMm'] ?? null,
                     'targetFiberIndex' => $t['targetFiberIndex'] ?? null,
-                    'lengthMm' => $t['lengthMm'] ?? null,
+                    'lengthMm' => $tubeLen,
                     'toleranceMm' => $t['toleranceMm'] ?? null,
                 ],
                 'source_path' => "\$.tubes[$i]",
@@ -188,6 +193,40 @@ final class BomBuilder
         }
 
         return $items;
+    }
+
+    private function resolveTubeLengthMm(array $tube, array $config): ?float
+    {
+        $startIdx = $tube['startFiberIndex'] ?? null;
+        $endIdx = $tube['endFiberIndex'] ?? null;
+        $startOffset = $tube['startOffsetMm'] ?? null;
+        $endOffset = $tube['endOffsetMm'] ?? null;
+        if (is_numeric($startIdx) && is_numeric($endIdx) && is_numeric($startOffset) && is_numeric($endOffset)) {
+            $fibers = $config['fibers'] ?? [];
+            $fiberCount = count($fibers);
+            $si = (int)$startIdx;
+            $ei = (int)$endIdx;
+            if ($si < 0 || $ei < 0 || $si >= $fiberCount || $ei >= $fiberCount) {
+                return is_numeric($tube['lengthMm'] ?? null) ? (float)$tube['lengthMm'] : null;
+            }
+            $segLens = [];
+            foreach ($fibers as $f) {
+                $len = $f['lengthMm'] ?? null;
+                $segLens[] = (is_numeric($len) && (float)$len > 0) ? (float)$len : 0.0;
+            }
+            $cum = 0.0;
+            $startAbs = 0.0;
+            $endAbs = 0.0;
+            for ($i = 0; $i < $fiberCount; $i++) {
+                if ($i === $si) $startAbs = $cum + (float)$startOffset;
+                if ($i === $ei) $endAbs = $cum + (float)$endOffset;
+                $cum += $segLens[$i] ?? 0.0;
+            }
+            $len = $endAbs - $startAbs;
+            return $len >= 0 ? $len : null;
+        }
+
+        return is_numeric($tube['lengthMm'] ?? null) ? (float)$tube['lengthMm'] : null;
     }
 
     private function buildOptions(mixed $map, array $config, array $derived, ?array $item, ?int $index): array

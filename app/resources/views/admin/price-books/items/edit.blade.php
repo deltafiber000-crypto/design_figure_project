@@ -9,11 +9,11 @@
         @method('PUT')
         <div class="row">
             <div class="col">
-                <label>SKU</label>
+                <label>SKU名</label>
                 <select name="sku_id">
                     @foreach($skus as $sku)
                         <option value="{{ $sku->id }}" @if((int)$item->sku_id === (int)$sku->id) selected @endif>
-                            {{ $sku->sku_code }} / {{ $sku->name }}
+                            {{ $sku->name }}
                         </option>
                     @endforeach
                 </select>

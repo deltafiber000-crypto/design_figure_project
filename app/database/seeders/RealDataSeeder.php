@@ -45,7 +45,7 @@ final class RealDataSeeder extends Seeder
             // 3) price_books / price_book_items
             // =========
             $priceBookIds = $this->seedPriceBooks(1);
-            $this->seedPriceBookItems($priceBookIds, $skuIdByCode, 25);
+            $this->seedPriceBookItems($priceBookIds, $skuIdByCode, 22);
 
             // =========
             // 4) product_templates / product_template_versions

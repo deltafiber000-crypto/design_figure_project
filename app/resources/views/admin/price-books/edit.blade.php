@@ -41,7 +41,6 @@
         <thead>
             <tr>
                 <th>ID</th>
-                <th>SKU</th>
                 <th>名称</th>
                 <th>モデル</th>
                 <th>単価</th>
@@ -55,7 +54,6 @@
             @foreach($items as $it)
                 <tr>
                     <td>{{ $it->id }}</td>
-                    <td>{{ $it->sku_code }}</td>
                     <td>{{ $it->sku_name }}</td>
                     <td>{{ $it->pricing_model }}</td>
                     <td>{{ $it->unit_price }}</td>
@@ -80,10 +78,10 @@
         @csrf
         <div class="row">
             <div class="col">
-                <label>SKU</label>
+                <label>SKU名</label>
                 <select name="sku_id">
                     @foreach($skus as $sku)
-                        <option value="{{ $sku->id }}">{{ $sku->sku_code }} / {{ $sku->name }}</option>
+                        <option value="{{ $sku->id }}">{{ $sku->name }}</option>
                     @endforeach
                 </select>
             </div>

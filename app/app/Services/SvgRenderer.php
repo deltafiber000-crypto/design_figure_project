@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
+
 final class SvgRenderer
 {
     /**
@@ -20,6 +22,12 @@ final class SvgRenderer
         $sleeves  = $config['sleeves'] ?? [];
         $skuNameByCode = $derived['skuNameByCode'] ?? [];
         $skuSvgByCode = $derived['skuSvgByCode'] ?? [];
+        if (empty($skuNameByCode)) {
+            $skuNameByCode = $this->buildSkuNameMap();
+        }
+        if (empty($skuSvgByCode)) {
+            $skuSvgByCode = $this->buildSkuSvgMap();
+        }
 
         $fiberCount = (int)($derived['fiberCount'] ?? ($mfdCount + 1));
         if ($fiberCount < 1) $fiberCount = 1;
@@ -123,14 +131,14 @@ final class SvgRenderer
         // 下側: (1)ファイバ寸法 (2)ファイバSKU
         // 上側: (1)チューブ寸法/開始位置 (2)チューブSKU (3)MFD変換SKU/コネクタSKU
         $belowDimY = $axisY + 12;
-        $belowLabelY = $belowDimY + 12;
+        $belowLabelY = $belowDimY + 18;
         $belowLabelY2 = $belowLabelY + 18;
         $belowLabelY3 = $belowLabelY2 + 18;
 
         $aboveDimY = $axisY - 12;
         $aboveOffsetDimY = $aboveDimY - 18;
-        $tubeLabelY = $aboveDimY - 36;
-        $mfdLabelY  = $tubeLabelY - 18;
+        $tubeLabelY = $aboveDimY - 42;
+        $mfdLabelY  = $tubeLabelY - 24;
         $labelY     = $belowLabelY2;
         $connLabelY = $belowLabelY3;
 
@@ -154,7 +162,7 @@ final class SvgRenderer
         $svg[] = '<style>
             .fiber { fill:#e5e7eb; stroke:#374151; stroke-width:1; }
             .fiber.unknown { stroke-dasharray:4 2; fill:#f3f4f6; }
-            .tube { fill:#facc15; stroke:#1f2937; stroke-width:1; opacity:0.85; }
+            .tube { fill:none; stroke:#facc15; stroke-width:2; opacity:0.95; }
             .marker { stroke:#111827; stroke-width:2; }
             .conn { fill:#d1d5db; stroke:#374151; stroke-width:1; }
             .label { font-size:'.$labelSize.'px; fill:#111827; font-weight:700; font-family: ui-sans-serif, system-ui, -apple-system; }
@@ -231,7 +239,7 @@ final class SvgRenderer
 
             // ラベル（長さ/誤差）
             $sku = $skuCode ? ($skuNameByCode[$skuCode] ?? null) : null;
-            $txt = 'F'.$i.': '.($sku ?? '(sku?)');
+            $txt = 'F['.$i.']:　'.($sku ?? '選択してください');
             $svg[] = '<text x="'.($x + $w / 2).'" y="'.$labelY.'" class="small'.(in_array($i, $targets['fiberIdx'], true) ? ' errText' : '').'" text-anchor="middle">'
                 . $esc($txt).'</text>';
         }
@@ -251,15 +259,49 @@ final class SvgRenderer
             $segActualLen = $actualSegmentLens[$targetIdx] ?? 0.0;
             $segDisplayLen = $displaySegmentLens[$targetIdx] ?? 0.0;
             $ratio = ($segActualLen > 0) ? ($segDisplayLen / $segActualLen) : 0.0;
+            $startMm = 0.0;
 
             $offsetMm = is_numeric($tubes[$j]['startOffsetMm'] ?? null) ? (float)$tubes[$j]['startOffsetMm'] : 0.0;
             $lenMm = is_numeric($tubes[$j]['lengthMm'] ?? null) ? (float)$tubes[$j]['lengthMm'] : 0.0;
 
-            $startMm = max(0.0, min($segActualLen, $offsetMm));
-            $endMm = max($startMm, min($segActualLen, $startMm + max(0.0, $lenMm)));
+            // 新方式: start/end ファイバ指定があればそれを優先
+            $startFiberIdx = is_numeric($tubes[$j]['startFiberIndex'] ?? null) ? (int)$tubes[$j]['startFiberIndex'] : null;
+            $endFiberIdx = is_numeric($tubes[$j]['endFiberIndex'] ?? null) ? (int)$tubes[$j]['endFiberIndex'] : null;
+            $endOffsetMm = is_numeric($tubes[$j]['endOffsetMm'] ?? null) ? (float)$tubes[$j]['endOffsetMm'] : null;
 
-            $x = $margin + ($segStart[$targetIdx] + ($startMm * $ratio)) * $scale;
-            $w = max(1.0, ($endMm - $startMm) * $ratio * $scale);
+            if ($startFiberIdx !== null && $endFiberIdx !== null && $endOffsetMm !== null
+                && $startFiberIdx >= 0 && $startFiberIdx < $fiberCount
+                && $endFiberIdx >= 0 && $endFiberIdx < $fiberCount) {
+                $startSegLen = $actualSegmentLens[$startFiberIdx] ?? 0.0;
+                $endSegLen = $actualSegmentLens[$endFiberIdx] ?? 0.0;
+                $startOffset = max(0.0, min($startSegLen, $offsetMm));
+                $endOffset = max(0.0, min($endSegLen, $endOffsetMm));
+
+                $startActual = ($actualStart[$startFiberIdx] ?? 0.0) + $startOffset;
+                $endActual = ($actualStart[$endFiberIdx] ?? 0.0) + $endOffset;
+                if ($endActual < $startActual) {
+                    $tmp = $endActual;
+                    $endActual = $startActual;
+                    $startActual = $tmp;
+                }
+
+                $startDisplay = $mapMm($startActual);
+                $endDisplay = $mapMm($endActual);
+
+                $x = $margin + $startDisplay * $scale;
+                $w = max(1.0, ($endDisplay - $startDisplay) * $scale);
+                $lenMm = max(0.0, $endActual - $startActual);
+                $targetIdx = $startFiberIdx;
+                $startMm = $startOffset;
+                $segActualLen = $actualSegmentLens[$targetIdx] ?? 0.0;
+                $segDisplayLen = $displaySegmentLens[$targetIdx] ?? 0.0;
+                $ratio = ($segActualLen > 0) ? ($segDisplayLen / $segActualLen) : 0.0;
+            } else {
+                $startMm = max(0.0, min($segActualLen, $offsetMm));
+                $endMm = max($startMm, min($segActualLen, $startMm + max(0.0, $lenMm)));
+                $x = $margin + ($segStart[$targetIdx] + ($startMm * $ratio)) * $scale;
+                $w = max(1.0, ($endMm - $startMm) * $ratio * $scale);
+            }
             $y = $tubeY;
 
             $cls = 'tube'
@@ -296,7 +338,11 @@ final class SvgRenderer
             }
 
             $sku = $skuCode ? ($skuNameByCode[$skuCode] ?? null) : null;
-            $txt = 'T'.$j.': '.($sku ?? '(sku?)').' -> F'.$targetIdx;
+            if ($startFiberIdx !== null && $endFiberIdx !== null) {
+                $txt = 'T['.$j.']:　'.($sku ?? '選択してください').'　=>　F['.$startFiberIdx.']~F['.$endFiberIdx.']';
+            } else {
+                $txt = 'T['.$j.']:　'.($sku ?? '選択してください').'　=>　F['.$targetIdx.']';
+            }
             $svg[] = '<text x="'.($x + $w / 2).'" y="'.$tubeLabelY.'" class="small'.(in_array((int)$j, $targets['tubeIdx'], true) ? ' errText' : '').'" text-anchor="middle">'
                 . $esc($txt).'</text>';
         }
@@ -429,5 +475,29 @@ final class SvgRenderer
         $t['fiberIdx'] = array_values(array_unique($t['fiberIdx']));
         $t['tubeIdx']  = array_values(array_unique($t['tubeIdx']));
         return $t;
+    }
+
+    private function buildSkuNameMap(): array
+    {
+        try {
+            return DB::table('skus')->pluck('name', 'sku_code')->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    private function buildSkuSvgMap(): array
+    {
+        $dir = public_path('sku-svg');
+        if (!is_dir($dir)) return [];
+
+        $map = [];
+        $files = glob($dir . '/*.svg') ?: [];
+        foreach ($files as $path) {
+            $code = basename($path, '.svg');
+            if ($code === '') continue;
+            $map[$code] = '/sku-svg/' . $code . '.svg';
+        }
+        return $map;
     }
 }

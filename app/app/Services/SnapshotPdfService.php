@@ -4,28 +4,148 @@ namespace App\Services;
 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 final class SnapshotPdfService
 {
     public function download(string $title, string $svg, string $filename): Response
     {
-        $svg = $this->applyPdfSvgFont($svg, "IPAGothic,IPAPGothic,'Noto Sans CJK JP',DejaVu Sans,sans-serif");
-        $fontPath = $this->ensureFontFile();
-        $tempFiles = [];
-        $svgForPng = $this->prepareSvgForPng($svg, $tempFiles);
-        $pngDataUri = $this->svgToPngDataUri($svgForPng, $tempFiles);
+        [$svg, $pngDataUri, $fontPath, $fontBoldPath] = $this->preparePdfGraphic($svg);
 
         $pdf = Pdf::loadView('pdf.snapshot', [
             'title' => $title,
             'svg' => $svg,
             'pngDataUri' => $pngDataUri,
             'fontPath' => $fontPath,
+            'fontBoldPath' => $fontBoldPath,
         ])->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true)
             ->setOption('chroot', [base_path()])
             ->setOption('defaultFont', 'JPFont');
 
         return $pdf->download($filename);
+    }
+
+    public function downloadQuoteUi(array $viewData, string $filename): Response
+    {
+        $svgRaw = (string)($viewData['svg'] ?? '');
+        // UI一致を優先し、SVGの文字フォント指定は改変しない。
+        [$svg, $pngDataUri, $fontPath, $fontBoldPath] = $this->preparePdfGraphic($svgRaw, false);
+        $snapshotGraphicHtml = $pngDataUri
+            ? '<img src="' . e($pngDataUri) . '" alt="snapshot" style="width:100%;height:auto;display:block;">'
+            : $svg;
+
+        $pdf = Pdf::loadView('pdf.quote_snapshot', array_merge($viewData, [
+            'fontPath' => $fontPath,
+            'fontBoldPath' => $fontBoldPath,
+            'snapshotGraphicHtml' => $snapshotGraphicHtml,
+        ]))
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('chroot', [base_path()])
+            ->setOption('defaultFont', 'JPFont');
+
+        return $pdf->download($filename);
+    }
+
+    public function buildFilename(
+        string $type,
+        ?int $accountId,
+        ?int $templateVersionId,
+        array $snapshot,
+        array $config,
+        array $derived,
+        ?string $timestamp = null
+    ): string {
+        $ts = $this->formatTimestamp($timestamp);
+        $procName = $this->resolveProcName($snapshot, $derived, $templateVersionId);
+        $account = $this->resolveAccountDisplayName($accountId);
+        $parts = [
+            $ts,
+            $procName,
+            $account,
+            $type,
+        ];
+        $safe = array_map([$this, 'sanitizePart'], $parts);
+        return implode('_', $safe) . '.pdf';
+    }
+
+    private function resolveAccountDisplayName(?int $accountId): string
+    {
+        if (!$accountId) return 'unknown';
+        $row = DB::table('accounts')->where('id', $accountId)->first(['name', 'internal_name']);
+        if (!$row) return 'unknown';
+        $name = $row->internal_name ?: $row->name;
+        return $name ?: 'unknown';
+    }
+
+    private function resolveProcName(array $snapshot, array $derived, ?int $templateVersionId): string
+    {
+        $bom = $snapshot['bom'] ?? null;
+        if (!is_array($bom)) {
+            $bom = $derived['bom'] ?? null;
+        }
+
+        $procSku = null;
+        if (is_array($bom)) {
+            foreach ($bom as $row) {
+                if (!is_array($row)) continue;
+                $code = (string)($row['sku_code'] ?? '');
+                if ($code === '') continue;
+                if (str_starts_with($code, 'PROC')) {
+                    $procSku = $code;
+                    break;
+                }
+            }
+        }
+
+        if ($procSku) {
+            $name = DB::table('skus')->where('sku_code', $procSku)->value('name');
+            if ($name) return (string)$name;
+        }
+
+        return $procSku;
+    }
+
+    private function sanitizePart(string $value): string
+    {
+        $v = trim($value);
+        if ($v === '') return 'unknown';
+        $v = preg_replace('/[\\r\\n\\t]+/u', ' ', $v) ?? $v;
+        $v = preg_replace('/[\\\\\\/\\:\\*\\?\\\"\\<\\>\\|]+/u', '_', $v) ?? $v;
+        $v = preg_replace('/\\s+/u', '_', $v) ?? $v;
+        return $v === '' ? 'unknown' : $v;
+    }
+
+    private function formatTimestamp(?string $timestamp): string
+    {
+        $tz = 'Asia/Tokyo';
+        if (!$timestamp) {
+            return Carbon::now($tz)->format('YmdHi');
+        }
+
+        $hasTz = (bool)preg_match('/(Z|[+-]\\d{2}:?\\d{2})$/', $timestamp);
+        if ($hasTz) {
+            return Carbon::parse($timestamp)->timezone($tz)->format('YmdHi');
+        }
+
+        // タイムゾーン情報が無い場合はUTCとして解釈してJSTへ変換
+        return Carbon::parse($timestamp, 'UTC')->timezone($tz)->format('YmdHi');
+    }
+
+    private function preparePdfGraphic(string $svg, bool $rewriteSvgFont = true): array
+    {
+        if ($rewriteSvgFont) {
+            $svg = $this->applyPdfSvgFont($svg, "IPAGothic,IPAPGothic,'Noto Sans CJK JP',DejaVu Sans,sans-serif");
+        }
+        $fontPath = $this->ensureFontFile();
+        $fontBoldPath = $this->ensureBoldFontFile();
+        $tempFiles = [];
+        $svgForPng = $this->prepareSvgForPng($svg, $tempFiles);
+        $pngDataUri = $this->svgToPngDataUri($svgForPng, $tempFiles);
+
+        return [$svg, $pngDataUri, $fontPath, $fontBoldPath];
     }
 
     private function prepareSvgForPng(string $svg, array &$tempFiles): string
@@ -155,14 +275,46 @@ final class SnapshotPdfService
 
         $target = $targetDir . '/ipag.ttf';
         if (is_file($target)) {
-            return 'storage/fonts/ipag.ttf';
+            return $target;
         }
 
         foreach ($candidates as $path) {
             if (is_file($path)) {
                 @copy($path, $target);
                 if (is_file($target)) {
-                    return 'storage/fonts/ipag.ttf';
+                    return $target;
+                }
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    private function ensureBoldFontFile(): ?string
+    {
+        $candidates = [
+            '/usr/share/fonts/truetype/ipafont/ipagp.ttf',
+            '/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf',
+            '/usr/share/fonts/truetype/ipafont/ipag.ttf',
+            '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf',
+        ];
+
+        $targetDir = storage_path('fonts');
+        if (!is_dir($targetDir)) {
+            @mkdir($targetDir, 0755, true);
+        }
+
+        $target = $targetDir . '/ipagp.ttf';
+        if (is_file($target)) {
+            return $target;
+        }
+
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                @copy($path, $target);
+                if (is_file($target)) {
+                    return $target;
                 }
                 return $path;
             }

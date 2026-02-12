@@ -81,11 +81,17 @@ final class ConfiguratorSessionController extends Controller
 
         $svg = $renderer->render($config, $derived, $errors);
 
-        return $pdfService->download(
-            '構成セッション スナップショット',
-            $svg,
-            "configurator_session_{$id}_snapshot.pdf"
+        $filename = $pdfService->buildFilename(
+            'configurator',
+            (int)$session->account_id,
+            (int)$session->template_version_id,
+            ['bom' => $derived['bom'] ?? null, 'template_version_id' => (int)$session->template_version_id],
+            $config,
+            $derived,
+            (string)$session->updated_at
         );
+
+        return $pdfService->download('構成セッション スナップショット', $svg, $filename);
     }
 
     public function editRequest(int $id)
@@ -95,10 +101,16 @@ final class ConfiguratorSessionController extends Controller
 
         $config = $this->decodeJson($session->config) ?? [];
         $connectors = is_array($config['connectors'] ?? null) ? $config['connectors'] : [];
+        $connectorOptions = DB::table('skus')
+            ->whereRaw('upper(category) = ?', ['CONNECTOR'])
+            ->where('active', true)
+            ->orderBy('name')
+            ->get(['sku_code', 'name']);
 
         return view('ops.sessions.edit-request', [
             'session' => $session,
             'configJson' => json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            'connectorOptions' => $connectorOptions,
             'simple' => [
                 'mfdCount' => $config['mfdCount'] ?? null,
                 'tubeCount' => $config['tubeCount'] ?? null,
@@ -152,10 +164,15 @@ final class ConfiguratorSessionController extends Controller
             }
         }
 
+        $baseConfig = $this->decodeJson($session->config) ?? [];
+
         DB::table('change_requests')->insert([
             'entity_type' => 'configurator_session',
             'entity_id' => $id,
-            'proposed_json' => json_encode(['config' => $decoded], JSON_UNESCAPED_UNICODE),
+            'proposed_json' => json_encode([
+                'config' => $decoded,
+                'base_config' => $baseConfig,
+            ], JSON_UNESCAPED_UNICODE),
             'status' => 'PENDING',
             'requested_by' => (int)$request->user()->id,
             'comment' => $data['comment'] ?? null,

@@ -107,7 +107,66 @@ final class DslEngine
             }
             $offset = (float)$offset;
 
-            // 3) lengthMm（チューブ長）
+            // 3) 新方式: start/end ファイバ指定がある場合
+            $startIdx = $tube['startFiberIndex'] ?? null;
+            $endIdx = $tube['endFiberIndex'] ?? null;
+            $endOffset = $tube['endOffsetMm'] ?? null;
+            if (is_numeric($startIdx) || is_numeric($endIdx) || $endOffset !== null) {
+                if (!is_numeric($startIdx)) {
+                    $errors[] = ['path' => "tubes.$j.startFiberIndex", 'message' => 'startFiberIndexが数値ではありません'];
+                    continue;
+                }
+                if (!is_numeric($endIdx)) {
+                    $errors[] = ['path' => "tubes.$j.endFiberIndex", 'message' => 'endFiberIndexが数値ではありません'];
+                    continue;
+                }
+                if (!is_numeric($endOffset)) {
+                    $errors[] = ['path' => "tubes.$j.endOffsetMm", 'message' => 'endOffsetMmが数値ではありません'];
+                    continue;
+                }
+
+                $si = (int)$startIdx;
+                $ei = (int)$endIdx;
+                if ($si < 0 || $si >= $fiberCount) {
+                    $errors[] = ['path' => "tubes.$j.startFiberIndex", 'message' => "startFiberIndexは0〜".($fiberCount-1)."です"];
+                    continue;
+                }
+                if ($ei < 0 || $ei >= $fiberCount) {
+                    $errors[] = ['path' => "tubes.$j.endFiberIndex", 'message' => "endFiberIndexは0〜".($fiberCount-1)."です"];
+                    continue;
+                }
+
+                $startOffset = $offset;
+                $endOffset = (float)$endOffset;
+                $startSegLen = $segLens[$si] ?? $fallbackPerSeg;
+                $endSegLen = $segLens[$ei] ?? $fallbackPerSeg;
+
+                if ($startOffset < 0 || $startOffset > $startSegLen) {
+                    $errors[] = ['path' => "tubes.$j.startOffsetMm", 'message' => "開始位置が範囲外です（0〜{$startSegLen}mm）"];
+                }
+                if ($endOffset < 0 || $endOffset > $endSegLen) {
+                    $errors[] = ['path' => "tubes.$j.endOffsetMm", 'message' => "終了位置が範囲外です（0〜{$endSegLen}mm）"];
+                }
+
+                $startAbs = ($segLens[0] ?? 0) * 0.0;
+                $endAbs = ($segLens[0] ?? 0) * 0.0;
+                $cum = 0.0;
+                for ($i = 0; $i < $fiberCount; $i++) {
+                    if ($i === $si) {
+                        $startAbs = $cum + $startOffset;
+                    }
+                    if ($i === $ei) {
+                        $endAbs = $cum + $endOffset;
+                    }
+                    $cum += $segLens[$i] ?? 0.0;
+                }
+                if ($endAbs < $startAbs) {
+                    $errors[] = ['path' => "tubes.$j.endOffsetMm", 'message' => '終了位置が開始位置より左です'];
+                }
+                continue;
+            }
+
+            // 3) 旧方式: lengthMm（チューブ長）
             $lenMm = $tube['lengthMm'] ?? null;
             if (!is_numeric($lenMm)) {
                 $errors[] = ['path' => "tubes.$j.lengthMm", 'message' => 'チューブ長さが数値ではありません'];

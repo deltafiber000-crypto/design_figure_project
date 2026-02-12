@@ -128,6 +128,8 @@ final class QuoteController extends Controller
             'total' => 'nullable|numeric',
         ]);
 
+        $baseSnapshot = $this->decodeJson($quote->snapshot) ?? [];
+
         $decoded = null;
         if (!empty($data['snapshot_json'])) {
             $decoded = json_decode($data['snapshot_json'], true);
@@ -145,7 +147,10 @@ final class QuoteController extends Controller
         DB::table('change_requests')->insert([
             'entity_type' => 'quote',
             'entity_id' => $id,
-            'proposed_json' => json_encode(['snapshot' => $decoded], JSON_UNESCAPED_UNICODE),
+            'proposed_json' => json_encode([
+                'snapshot' => $decoded,
+                'base_snapshot' => $baseSnapshot,
+            ], JSON_UNESCAPED_UNICODE),
             'status' => 'PENDING',
             'requested_by' => (int)$request->user()->id,
             'comment' => $data['comment'] ?? null,
@@ -176,10 +181,16 @@ final class QuoteController extends Controller
 
         $svg = $renderer->render($config, $derived, $errors);
 
-        return $pdfService->download(
-            '見積 スナップショット',
-            $svg,
-            "quote_{$id}_snapshot.pdf"
+        $filename = $pdfService->buildFilename(
+            'quote',
+            (int)$quote->account_id,
+            (int)($snapshot['template_version_id'] ?? 0),
+            $snapshot,
+            $config,
+            $derived,
+            (string)$quote->updated_at
         );
+
+        return $pdfService->download('見積 スナップショット', $svg, $filename);
     }
 }

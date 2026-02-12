@@ -25,6 +25,8 @@ services:
   db:
     image: postgres:16-alpine
     environment:
+      TZ: Asia/Tokyo
+      PGTZ: Asia/Tokyo
       POSTGRES_DB: mfd
       POSTGRES_USER: mfd
       POSTGRES_PASSWORD: 5011
