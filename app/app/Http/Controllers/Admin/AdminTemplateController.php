@@ -25,14 +25,18 @@ final class AdminTemplateController extends Controller
         $data = $request->validate([
             'template_code' => 'required|string|max:255|unique:product_templates,template_code',
             'name' => 'required|string|max:255',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         $active = $request->boolean('active', true);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $id = (int)DB::table('product_templates')->insertGetId([
             'template_code' => $data['template_code'],
             'name' => $data['name'],
             'active' => $active,
+            'memo' => $memo,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -42,6 +46,7 @@ final class AdminTemplateController extends Controller
             'template_code' => $data['template_code'],
             'name' => $data['name'],
             'active' => $active,
+            'memo' => $memo,
         ]);
 
         return redirect()->route('admin.templates.index')->with('status', 'テンプレを作成しました');
@@ -76,15 +81,19 @@ final class AdminTemplateController extends Controller
         $data = $request->validate([
             'template_code' => 'required|string|max:255|unique:product_templates,template_code,' . $id,
             'name' => 'required|string|max:255',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         $active = $request->boolean('active', false);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $before = (array)$template;
         DB::table('product_templates')->where('id', $id)->update([
             'template_code' => $data['template_code'],
             'name' => $data['name'],
             'active' => $active,
+            'memo' => $memo,
             'updated_at' => now(),
         ]);
 

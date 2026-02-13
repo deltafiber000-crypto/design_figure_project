@@ -24,16 +24,11 @@ final class RealDataSeeder extends Seeder
             // 0) users（Laravel標準）
             // =========
             $fixed = $this->seedFixedUsers();
-            // $this->seedUsers(3);
 
             // =========
             // 1) accounts / account_user
             // =========
-            $mainAccountId = $this->ensureMainAccount();
-            $this->seedFixedAccountUsers($mainAccountId, $fixed);
-            // $accountIds = $this->seedAccounts(3);
-            // $userIds = User::query()->orderBy('id')->limit(10)->pluck('id')->all();
-            // $this->seedAccountUser($accountIds, $userIds);
+            $this->seedThreeRoleAccounts($fixed);
 
             // =========
             // 2) skus
@@ -85,93 +80,72 @@ final class RealDataSeeder extends Seeder
         return $ids;
     }
 
-    private function seedUsers(int $n): void
-    {
-        // 既に10人以上いれば追加しない（updateOrInsert：なければ作る）
-        $existing = User::query()->count();
-        if ($existing >= $n) return;
-
-        $toCreate = $n - $existing;
-
-        for ($i = 1; $i <= $toCreate; $i++) {
-            $num = $existing + $i;
-            User::query()->create([
-                'name' => "Demo User {$num}",
-                'email' => "demo{$num}@example.com",
-                'password' => Hash::make('password'),
-            ]);
-        }
-    }
-
     // -------------------------
     // accounts
     // -------------------------
-    private function ensureMainAccount(): int
+
+    /**
+     * admin / sales / customer の3権限それぞれ専用のアカウントを作成し、
+     * 対応ユーザーを1名ずつ紐づける。
+     *
+     * @param array<string,int> $fixedUserIds
+     * @return array<string,int> role => account_id
+     */
+    private function seedThreeRoleAccounts(array $fixedUserIds): array
     {
-        $id = (int)DB::table('accounts')->where('name', 'Main Account')->value('id');
-        if ($id > 0) return $id;
+        $defs = [
+            'admin' => [
+                'account_name' => '社長',
+                'account_type' => 'B2B',
+                'user_email' => 'admin@gmail.com',
+            ],
+            'sales' => [
+                'account_name' => '森',
+                'account_type' => 'B2B',
+                'user_email' => 'sales@gmail.com',
+            ],
+            'customer' => [
+                'account_name' => '顧客',
+                'account_type' => 'B2C',
+                'user_email' => 'customer@gmail.com',
+            ],
+        ];
 
-        return (int)DB::table('accounts')->insertGetId([
-            'account_type' => 'B2B',
-            'name' => 'Main Account',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
+        $accountIds = [];
 
-    private function seedAccounts(int $n): array
-    {
-        // 既存を尊重しつつ不足分だけ追加
-        $existingIds = DB::table('accounts')->orderBy('id')->pluck('id')->all();
-        $need = $n - count($existingIds);
+        foreach ($defs as $role => $def) {
+            $accountId = (int)DB::table('accounts')
+                ->where('internal_name', $def['account_name'])
+                ->value('id');
 
-        if ($need > 0) {
-            $rows = [];
-            for ($i = 1; $i <= $need; $i++) {
-                $idx = count($existingIds) + $i;
-                $rows[] = [
-                    'account_type' => ($idx % 2 === 0) ? 'B2B' : 'B2C',
-                    'name' => "Demo Account {$idx}",
+            if ($accountId <= 0) {
+                $accountId = (int)DB::table('accounts')->insertGetId([
+                    'account_type' => $def['account_type'],
+                    'internal_name' => $def['account_name'],
                     'created_at' => now(),
                     'updated_at' => now(),
-                ];
+                ]);
             }
-            DB::table('accounts')->insert($rows);
+
+            $accountIds[$role] = $accountId;
+
+            $userId = $fixedUserIds[$def['user_email']] ?? null;
+            if (!$userId) {
+                continue;
+            }
+
+            DB::table('account_user')->updateOrInsert(
+                ['account_id' => $accountId, 'user_id' => (int)$userId],
+                $this->pivotRow($accountId, (int)$userId, $role)
+            );
         }
 
-        return DB::table('accounts')->orderBy('id')->limit($n)->pluck('id')->all();
+        return $accountIds;
     }
 
     // -------------------------
     // account_user（pivot：中間テーブル）
     // -------------------------
-    private function seedAccountUser(array $accountIds, array $userIds): void
-    {
-        $roles = ['admin', 'sales', 'customer'];
-
-        $rows = [];
-        $pairs = 0;
-
-        // 各account（アカウント：顧客）にユーザー2人ぐらい紐づける
-        foreach ($accountIds as $ai => $accountId) {
-            $u1 = $userIds[$ai % count($userIds)];
-            $u2 = $userIds[($ai + 1) % count($userIds)];
-
-            $rows[] = $this->pivotRow($accountId, $u1, $roles[$ai % 3]);
-            $rows[] = $this->pivotRow($accountId, $u2, $roles[($ai + 1) % 3]);
-
-            $pairs += 2;
-            if ($pairs >= 20) break; // だいたい20件
-        }
-
-        foreach ($rows as $r) {
-            DB::table('account_user')->updateOrInsert(
-                ['account_id' => $r['account_id'], 'user_id' => $r['user_id']],
-                $r
-            );
-        }
-    }
-
     private function pivotRow(int $accountId, int $userId, string $role): array
     {
         return [

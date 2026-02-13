@@ -23,5 +23,6 @@ final class ConfiguratorSession extends Model
         'config',
         'derived',
         'validation_errors',
+        'memo',
     ];
 }

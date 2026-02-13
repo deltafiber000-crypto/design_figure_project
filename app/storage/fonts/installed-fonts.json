@@ -1,6 +1,7 @@
 {
     "jpfont": {
-        "normal": "jpfont_normal_861c286e811b50a61db70864a180f84e"
+        "normal": "\/var\/www\/html\/storage\/fonts\/jpfont_normal_861c286e811b50a61db70864a180f84e",
+        "bold": "jpfont_bold_92221c041fd923b6a6b8538fb4180675"
     },
     "jpfontui": {
         "normal": "\/var\/www\/html\/storage\/fonts\/jpfontui_normal_861c286e811b50a61db70864a180f84e",

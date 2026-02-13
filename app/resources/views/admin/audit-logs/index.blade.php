@@ -53,6 +53,9 @@
                 <th>アクション</th>
                 <th>対象種別</th>
                 <th>対象ID</th>
+                <th>作成者アカウント表示名</th>
+                <th>登録メールアドレス</th>
+                <th>担当者</th>
                 <th>作成日</th>
             </tr>
         </thead>
@@ -64,6 +67,9 @@
                     <td>{{ $l->action }}</td>
                     <td>{{ $l->entity_type }}</td>
                     <td>{{ $l->entity_id }}</td>
+                    <td>{{ $l->actor_account_display_name ?? '-' }}</td>
+                    <td>{{ $l->actor_email ?? '-' }}</td>
+                    <td>{{ $l->actor_assignee_name ?? '-' }}</td>
                     <td>{{ $l->created_at }}</td>
                 </tr>
             @endforeach

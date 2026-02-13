@@ -35,6 +35,10 @@
             <label>attributes（JSON）</label>
             <textarea name="attributes">{{ old('attributes', $attributesJson) }}</textarea>
         </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo', $sku->memo) }}</textarea>
+        </div>
         <div style="margin-top:12px;">
             <button type="submit">更新</button>
         </div>

@@ -21,6 +21,34 @@ final class QuoteService
                 throw new \RuntimeException("configurator_sessions not found: {$sessionId}");
             }
 
+            // 直後ログインユーザーでの発行時、未紐付けセッションはユーザーaccountへ引き継ぐ。
+            // 既に他ユーザーに紐付いたaccountなら発行不可にする。
+            if ($actorUserId) {
+                $belongsToActor = DB::table('account_user')
+                    ->where('account_id', (int)$session->account_id)
+                    ->where('user_id', $actorUserId)
+                    ->exists();
+
+                if (!$belongsToActor) {
+                    $linkedToAnyUser = DB::table('account_user')
+                        ->where('account_id', (int)$session->account_id)
+                        ->exists();
+
+                    if ($linkedToAnyUser) {
+                        throw new \RuntimeException('forbidden: session account does not belong to actor user');
+                    }
+
+                    $targetAccountId = $this->resolveOrCreateActorAccountId($actorUserId);
+                    DB::table('configurator_sessions')
+                        ->where('id', (int)$session->id)
+                        ->update([
+                            'account_id' => $targetAccountId,
+                            'updated_at' => now(),
+                        ]);
+                    $session->account_id = $targetAccountId;
+                }
+            }
+
             $config = $this->decodeJson($session->config) ?? [];
             $derived = $this->decodeJson($session->derived) ?? [];
             $validationErrors = $this->decodeJson($session->validation_errors) ?? [];
@@ -46,6 +74,7 @@ final class QuoteService
                 'session_id' => (int)$session->id,
                 'status' => 'ISSUED',
                 'currency' => (string)($pricingResult['currency'] ?? 'JPY'),
+                'memo' => $session->memo,
                 'subtotal' => (float)($pricingResult['subtotal'] ?? 0),
                 'discount_total' => 0,
                 'tax_total' => (float)($pricingResult['tax'] ?? 0),
@@ -53,6 +82,7 @@ final class QuoteService
                 'snapshot' => json_encode([
                     'template_version_id' => (int)$session->template_version_id,
                     'price_book_id' => $pricingResult['price_book_id'] ?? null,
+                    'account_display_name_source' => 'internal_name',
                     'config' => $config,
                     'derived' => $derived,
                     'validation_errors' => $validationErrors,
@@ -92,6 +122,43 @@ final class QuoteService
 
             return $quoteId;
         });
+    }
+
+    private function resolveOrCreateActorAccountId(int $userId): int
+    {
+        $accountId = (int)DB::table('account_user')
+            ->where('user_id', $userId)
+            ->orderByRaw("
+                case role
+                    when 'customer' then 1
+                    when 'admin' then 2
+                    when 'sales' then 3
+                    else 9
+                end
+            ")
+            ->orderBy('account_id')
+            ->value('account_id');
+        if ($accountId > 0) {
+            return $accountId;
+        }
+
+        $userName = (string)(DB::table('users')->where('id', $userId)->value('name') ?? '');
+        $accountId = (int)DB::table('accounts')->insertGetId([
+            'account_type' => 'B2C',
+            'internal_name' => trim($userName) !== '' ? $userName : null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('account_user')->insert([
+            'account_id' => $accountId,
+            'user_id' => $userId,
+            'role' => 'customer',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $accountId;
     }
 
     private function insertQuoteItems(int $quoteId, array $bom, array $pricingItems): void

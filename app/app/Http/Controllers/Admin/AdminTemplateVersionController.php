@@ -18,6 +18,7 @@ final class AdminTemplateVersionController extends Controller
             'version' => 'required|integer|min:1',
             'dsl_version' => 'required|string|max:255',
             'dsl_json' => 'required|string',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         $exists = DB::table('product_template_versions')
@@ -34,6 +35,8 @@ final class AdminTemplateVersionController extends Controller
         }
 
         $active = $request->boolean('active', true);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $id = (int)DB::table('product_template_versions')->insertGetId([
             'template_id' => $templateId,
@@ -41,6 +44,7 @@ final class AdminTemplateVersionController extends Controller
             'dsl_version' => $data['dsl_version'],
             'dsl_json' => json_encode($decoded, JSON_UNESCAPED_UNICODE),
             'active' => $active,
+            'memo' => $memo,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -86,6 +90,7 @@ final class AdminTemplateVersionController extends Controller
             'version' => 'required|integer|min:1',
             'dsl_version' => 'required|string|max:255',
             'dsl_json' => 'required|string',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         $exists = DB::table('product_template_versions')
@@ -103,6 +108,8 @@ final class AdminTemplateVersionController extends Controller
         }
 
         $active = $request->boolean('active', false);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $before = (array)$version;
         DB::table('product_template_versions')->where('id', $versionId)->update([
@@ -110,6 +117,7 @@ final class AdminTemplateVersionController extends Controller
             'dsl_version' => $data['dsl_version'],
             'dsl_json' => json_encode($decoded, JSON_UNESCAPED_UNICODE),
             'active' => $active,
+            'memo' => $memo,
             'updated_at' => now(),
         ]);
 

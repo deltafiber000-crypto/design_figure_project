@@ -19,7 +19,7 @@
             <tr>
                 <th>ID</th>
                 <th>アカウント表示名</th>
-                <th>アカウント登録名</th>
+                <th>ユーザー登録名</th>
                 <th>種別</th>
                 <th>権限設定</th>
                 <th>担当者</th>
@@ -32,12 +32,13 @@
         <tbody>
             @foreach($accounts as $a)
                 @php
-                    $display = $a->internal_name ?: $a->name;
+                    $fallbackUserName = $a->fallback_user_name ?? null;
+                    $display = $a->internal_name ?: ($fallbackUserName ?: '-');
                 @endphp
                 <tr>
                     <td>{{ $a->id }}</td>
                     <td>{{ $display }}</td>
-                    <td>{{ $a->name }}</td>
+                    <td>{{ $fallbackUserName ?: '-' }}</td>
                     <td>{{ $a->account_type }}</td>
                     <td>
                         <div>{{ $a->role_summary ?? 'admin:0 / sales:0 / customer:0' }}</div>

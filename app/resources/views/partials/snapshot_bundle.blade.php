@@ -10,12 +10,32 @@
     $showErrorTable = (bool)($showErrorTable ?? true);
     $showConfigPriceTable = (bool)($showConfigPriceTable ?? true);
     $showSummary = (bool)($showSummary ?? true);
+    $summaryTitle = (string)($summaryTitle ?? '概要');
+    $errorTableLabel = (string)($errorTableLabel ?? '検証エラー');
+    $summaryUseTableLayout = (bool)($summaryUseTableLayout ?? false);
+    $showCreatorColumns = (bool)($showCreatorColumns ?? false);
+    $creatorAccountDisplayName = trim((string)($creatorAccountDisplayName ?? ''));
+    $creatorEmail = trim((string)($creatorEmail ?? ''));
+    $creatorAssigneeName = trim((string)($creatorAssigneeName ?? ''));
+    $creatorAccountDisplayText = $creatorAccountDisplayName !== '' ? $creatorAccountDisplayName : '-';
+    $creatorEmailText = $creatorEmail !== '' ? $creatorEmail : '-';
+    $creatorAssigneeText = $creatorAssigneeName !== '' ? $creatorAssigneeName : '-';
     $showSourcePathColumn = (bool)($showSourcePathColumn ?? true);
     $showQuantityColumn = (bool)($showQuantityColumn ?? true);
     $showPriceColumns = (bool)($showPriceColumns ?? true);
     $showSkuOnlyWhenPriced = (bool)($showSkuOnlyWhenPriced ?? false);
     $configTableLabel = (string)($configTableLabel ?? '構成価格表');
     $showJsonSection = (bool)($showJsonSection ?? true);
+    $showMemoCard = (bool)($showMemoCard ?? false);
+    $memoValue = (string)($memoValue ?? '');
+    $memoLabel = (string)($memoLabel ?? 'メモ');
+    $memoUpdateUrl = $memoUpdateUrl ?? null;
+    $memoFieldName = (string)($memoFieldName ?? 'memo');
+    $memoRows = max(2, (int)($memoRows ?? 3));
+    $memoFixedHeightPx = max(32, (int)($memoFixedHeightPx ?? 40));
+    $memoButtonLabel = (string)($memoButtonLabel ?? 'メモ保存');
+    $memoHttpMethod = strtoupper((string)($memoHttpMethod ?? 'PUT'));
+    $memoReadonly = (bool)($memoReadonly ?? false);
     // summaryLayoutMode:
     // - fit: 指定列数summaryColumnsに収めることを優先。収まらない時のみ次行へ折り返し
     // - row: 固定列グリッド（summaryColumns）
@@ -201,8 +221,8 @@
     $leftPricedSku = (string)($leftRow['sku_code'] ?? '');
     if ($showLeftConnector) {
         $rows[] = [
-            'type' => 'コネクタ 左端',
-            'index' => '-',
+            'type' => 'コネクタ',
+            'index' => '左端',
             'sku_code' => $leftSku,
             'priced_sku_code' => ($leftSku !== '' && $leftPricedSku === $leftSku) ? $leftPricedSku : '',
             'sku_name' => $toSkuName($leftSku),
@@ -221,8 +241,8 @@
     $rightPricedSku = (string)($rightRow['sku_code'] ?? '');
     if ($showRightConnector) {
         $rows[] = [
-            'type' => 'コネクタ 右端',
-            'index' => '-',
+            'type' => 'コネクタ',
+            'index' => '右端',
             'sku_code' => $rightSku,
             'priced_sku_code' => ($rightSku !== '' && $rightPricedSku === $rightSku) ? $rightPricedSku : '',
             'sku_name' => $toSkuName($rightSku),
@@ -260,7 +280,7 @@
         // ['label' => 'チューブ数', 'value' => $config['tubeCount'] ?? ''],
         // ['label' => 'エラー件数', 'value' => is_array($errors) ? count($errors) : 0],
         // ['label' => 'BOM件数', 'value' => count($bom)],
-        ['label' => '価格内訳件数', 'value' => count($pricing)],
+        // ['label' => '価格内訳件数', 'value' => count($pricing)],
         ['label' => '小計', 'value' => $totals['subtotal'] ?? ''],
         ['label' => '税', 'value' => $totals['tax'] ?? ''],
         ['label' => '合計', 'value' => $totals['total'] ?? ''],
@@ -270,9 +290,11 @@
     if ($summaryLayoutMode === 'fit' && $summaryColumnsInput === null && $summaryRowsInput !== null) {
         $summaryColumns = max(1, (int)ceil(max(1, count($summary)) / $summaryRows));
     }
+    $summaryTableColumns = max(1, (int)($summaryTableColumns ?? $summaryColumns));
 
     $summaryGridStyle = '';
-    $summaryCardStyle = 'padding:8px; background:#fff; border:1px solid #e5e7eb; border-radius:6px;';
+    $summaryCardBaseStyle = 'padding:8px; background:#fff; border:1px solid #e5e7eb; border-radius:6px;';
+    $summaryCardStyle = $summaryCardBaseStyle;
     if ($summaryLayoutMode === 'column') {
         $summaryGridStyle = 'display:grid; gap:'.$summaryGapPx.'px;';
         $summaryGridStyle .= ' grid-auto-flow:column;';
@@ -290,6 +312,15 @@
         $summaryCardStyle .= ' max-width:'.$summaryBasis.';';
         $summaryCardStyle .= ' min-width:min(100%, '.$summaryMinCardWidth.'px);';
     }
+    $memoCardStyle = $summaryCardStyle;
+    if ($summaryLayoutMode === 'fit') {
+        // 余白がある場合はメモカードを横方向に優先して広げる
+        $memoCardStyle .= ' flex-grow:999; max-width:none;';
+    } elseif ($summaryLayoutMode === 'row') {
+        // 固定列レイアウト時はメモカードを1行いっぱいに使う
+        $memoCardStyle .= ' grid-column:1 / -1;';
+    }
+    $memoFieldStyle = 'width:100%; height:'.$memoFixedHeightPx.'px; min-height:'.$memoFixedHeightPx.'px; max-height:'.$memoFixedHeightPx.'px; box-sizing:border-box; overflow:auto;';
 
     $snapshotJsonText = isset($snapshotJson) ? (string)$snapshotJson : json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     $configJsonText = isset($configJson) ? (string)$configJson : json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -309,22 +340,107 @@
         {!! $svg !!}
     </div>
 
-    @if($showSummary && count($summary) > 0)
+    @if(($showSummary && count($summary) > 0) || $showMemoCard)
         <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px; background:#f9fafb;">
-            <div style="font-weight:700; margin-bottom:8px;">概要</div>
-            <div style="{{ $summaryGridStyle }}">
-                @foreach($summary as $item)
-                    @php
-                        $label = (string)($item['label'] ?? '');
-                        $value = $item['value'] ?? null;
-                        $valueText = ($value === null || $value === '') ? '-' : (string)$value;
-                    @endphp
-                    <div style="{{ $summaryCardStyle }}">
-                        <div class="muted">{{ $label }}</div>
-                        <div style="overflow-wrap:anywhere; word-break:break-word;">{{ $valueText }}</div>
-                    </div>
-                @endforeach
-            </div>
+            <div style="font-weight:700; margin-bottom:8px;">{{ $summaryTitle }}</div>
+            @if($summaryUseTableLayout)
+                @php
+                    $summaryCells = [];
+                    if ($showSummary) {
+                        foreach ($summary as $item) {
+                            $summaryCells[] = [
+                                'type' => 'summary',
+                                'item' => $item,
+                            ];
+                        }
+                    }
+                    if ($showMemoCard) {
+                        $summaryCells[] = ['type' => 'memo'];
+                    }
+                    $summaryRowsTable = array_chunk($summaryCells, $summaryTableColumns);
+                @endphp
+                <table style="width:100%; table-layout:fixed; border-collapse:separate; border-spacing:{{ $summaryGapPx }}px;">
+                    <tbody>
+                        @foreach($summaryRowsTable as $rowItems)
+                            <tr>
+                                @foreach($rowItems as $cell)
+                                    <td style="vertical-align:top; border:none; padding:0;">
+                                        @if(($cell['type'] ?? '') === 'summary')
+                                            @php
+                                                $item = $cell['item'] ?? [];
+                                                $label = (string)($item['label'] ?? '');
+                                                $value = $item['value'] ?? null;
+                                                $valueText = ($value === null || $value === '') ? '-' : (string)$value;
+                                            @endphp
+                                            <div style="{{ $summaryCardBaseStyle }}">
+                                                <div class="muted">{{ $label }}</div>
+                                                <div style="overflow-wrap:anywhere; word-break:break-word;">{{ $valueText }}</div>
+                                            </div>
+                                        @else
+                                            <div style="{{ $summaryCardBaseStyle }}">
+                                                <div class="muted">{{ $memoLabel }}</div>
+                                                @if(!$memoReadonly && $memoUpdateUrl)
+                                                    <form method="POST" action="{{ $memoUpdateUrl }}">
+                                                        @csrf
+                                                        @if(!in_array($memoHttpMethod, ['GET', 'POST'], true))
+                                                            @method($memoHttpMethod)
+                                                        @endif
+                                                        <textarea name="{{ $memoFieldName }}" rows="{{ $memoRows }}" style="{{ $memoFieldStyle }} resize:none;">{{ old($memoFieldName, $memoValue) }}</textarea>
+                                                        <div style="margin-top:6px;">
+                                                            <button type="submit">{{ $memoButtonLabel }}</button>
+                                                        </div>
+                                                    </form>
+                                                @else
+                                                    <div style="{{ $memoFieldStyle }} white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;">{{ $memoValue !== '' ? $memoValue : '（未入力）' }}</div>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </td>
+                                @endforeach
+                                @for($i = count($rowItems); $i < $summaryTableColumns; $i++)
+                                    <td style="border:none; padding:0;"></td>
+                                @endfor
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div style="{{ $summaryGridStyle }}">
+                    @if($showSummary)
+                        @foreach($summary as $item)
+                            @php
+                                $label = (string)($item['label'] ?? '');
+                                $value = $item['value'] ?? null;
+                                $valueText = ($value === null || $value === '') ? '-' : (string)$value;
+                            @endphp
+                            <div style="{{ $summaryCardStyle }}">
+                                <div class="muted">{{ $label }}</div>
+                                <div style="overflow-wrap:anywhere; word-break:break-word;">{{ $valueText }}</div>
+                            </div>
+                        @endforeach
+                    @endif
+
+                    @if($showMemoCard)
+                        <div style="{{ $memoCardStyle }}">
+                            <div class="muted">{{ $memoLabel }}</div>
+                            @if(!$memoReadonly && $memoUpdateUrl)
+                                <form method="POST" action="{{ $memoUpdateUrl }}">
+                                    @csrf
+                                    @if(!in_array($memoHttpMethod, ['GET', 'POST'], true))
+                                        @method($memoHttpMethod)
+                                    @endif
+                                    <textarea name="{{ $memoFieldName }}" rows="{{ $memoRows }}" style="{{ $memoFieldStyle }} resize:none;">{{ old($memoFieldName, $memoValue) }}</textarea>
+                                    <div style="margin-top:6px;">
+                                        <button type="submit">{{ $memoButtonLabel }}</button>
+                                    </div>
+                                </form>
+                            @else
+                                <div style="{{ $memoFieldStyle }} white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;">{{ $memoValue !== '' ? $memoValue : '（未入力）' }}</div>
+                            @endif
+                        </div>
+                    @endif
+                </div>
+            @endif
         </div>
     @endif
 
@@ -337,12 +453,17 @@
         @endif
 
             @if($showErrorTable)
-                <h4>検証エラー</h4>
+                <h4>{{ $errorTableLabel }}</h4>
                 <table>
                     <thead>
                         <tr>
                             <th>パス</th>
                             <th>メッセージ</th>
+                            @if($showCreatorColumns)
+                                <th>作成者アカウント表示名</th>
+                                <th>登録メールアドレス</th>
+                                <th>担当者</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -351,11 +472,22 @@
                                 <tr>
                                     <td>{{ $e['path'] ?? '' }}</td>
                                     <td>{{ $e['message'] ?? '' }}</td>
+                                    @if($showCreatorColumns)
+                                        <td>{{ $creatorAccountDisplayText }}</td>
+                                        <td>{{ $creatorEmailText }}</td>
+                                        <td>{{ $creatorAssigneeText }}</td>
+                                    @endif
                                 </tr>
                             @endforeach
                         @else
                             <tr>
-                                <td colspan="2">-</td>
+                                <td>-</td>
+                                <td>-</td>
+                                @if($showCreatorColumns)
+                                    <td>{{ $creatorAccountDisplayText }}</td>
+                                    <td>{{ $creatorEmailText }}</td>
+                                    <td>{{ $creatorAssigneeText }}</td>
+                                @endif
                             </tr>
                         @endif
                     </tbody>
@@ -369,7 +501,7 @@
                         <tr>
                             <th>種類</th>
                             <th>番号</th>
-                            <th>SKU名</th>
+                            <th>パーツ名</th>
                             @if($showSourcePathColumn)
                                 <th>source_path</th>
                             @endif
@@ -381,6 +513,11 @@
                             @if($showPriceColumns)
                                 <th>単価(¥)</th>
                                 <th>小計(¥)</th>
+                            @endif
+                            @if($showCreatorColumns)
+                                <th>作成者アカウント表示名</th>
+                                <th>登録メールアドレス</th>
+                                <th>担当者</th>
                             @endif
                         </tr>
                     </thead>
@@ -407,6 +544,11 @@
                                 @if($showPriceColumns)
                                     <td>{{ $r['unit_price'] ?? '' }}</td>
                                     <td>{{ $r['line_total'] ?? '' }}</td>
+                                @endif
+                                @if($showCreatorColumns)
+                                    <td>{{ $creatorAccountDisplayText }}</td>
+                                    <td>{{ $creatorEmailText }}</td>
+                                    <td>{{ $creatorAssigneeText }}</td>
                                 @endif
                             </tr>
                         @endforeach

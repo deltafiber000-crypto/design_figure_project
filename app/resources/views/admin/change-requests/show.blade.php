@@ -6,6 +6,8 @@
     @php
         $canApprove = $canApprove ?? true;
         $snapshotPdfUrl = $snapshotPdfUrl ?? route('admin.change-requests.snapshot.pdf', $req->id);
+        $baseSnapshotPdfUrl = $baseSnapshotPdfUrl ?? route('admin.change-requests.snapshot-base.pdf', $req->id);
+        $compareSnapshotPdfUrl = $compareSnapshotPdfUrl ?? route('admin.change-requests.snapshot-compare.pdf', $req->id);
 
         $config = json_decode($configJson ?? '[]', true) ?? [];
         $derived = json_decode($derivedJson ?? '[]', true) ?? [];
@@ -21,6 +23,7 @@
         if (!isset($snapshotView['bom']) || !is_array($snapshotView['bom'])) $snapshotView['bom'] = [];
         if (!isset($snapshotView['pricing']) || !is_array($snapshotView['pricing'])) $snapshotView['pricing'] = [];
         if (!isset($snapshotView['totals']) || !is_array($snapshotView['totals'])) $snapshotView['totals'] = [];
+        $requestMemo = trim((string)($snapshotView['memo'] ?? ''));
 
         $baseSnapshotView = is_array($baseSnapshot ?? null) ? $baseSnapshot : [];
         if (!isset($baseSnapshotView['config'])) $baseSnapshotView['config'] = $baseConfig;
@@ -29,6 +32,7 @@
         if (!isset($baseSnapshotView['bom']) || !is_array($baseSnapshotView['bom'])) $baseSnapshotView['bom'] = [];
         if (!isset($baseSnapshotView['pricing']) || !is_array($baseSnapshotView['pricing'])) $baseSnapshotView['pricing'] = [];
         if (!isset($baseSnapshotView['totals']) || !is_array($baseSnapshotView['totals'])) $baseSnapshotView['totals'] = [];
+        $baseMemo = trim((string)($baseSnapshotView['memo'] ?? ''));
     @endphp
 
     @if($canApprove && $req->status === 'PENDING')
@@ -44,6 +48,10 @@
         </div>
     @endif
 
+    <div style="margin-top:12px;">
+        <a href="{{ $compareSnapshotPdfUrl }}">比較PDFダウンロード（編集前/編集後）</a>
+    </div>
+
     <h3>承認結果</h3>
     <table>
         <thead>
@@ -51,18 +59,24 @@
                 <th>ステータス</th>
                 <th>承認者</th>
                 <th>承認日時</th>
+                <th>作成者アカウント表示名</th>
+                <th>登録メールアドレス</th>
+                <th>担当者</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>{{ $req->status }}</td>
-                <td>{{ $req->approved_by }}</td>
+                <td>{{ $req->approved_by_account_display_name ?? ($req->approved_by ? 'ID: '.$req->approved_by : '-') }}</td>
                 <td>{{ $req->approved_at }}</td>
+                <td>{{ $req->requested_by_account_display_name ?? '-' }}</td>
+                <td>{{ $req->requested_by_email ?? '-' }}</td>
+                <td>{{ $req->requested_by_assignee_name ?? '-' }}</td>
             </tr>
         </tbody>
     </table>
 
-    @if((int)$req->id === 1 && !empty($baseSvg))
+    @if(!empty($baseSvg))
         @php
             $baseConfigCmp = is_array($baseSnapshotView['config'] ?? null) ? $baseSnapshotView['config'] : [];
             $newConfigCmp = is_array($snapshotView['config'] ?? null) ? $snapshotView['config'] : [];
@@ -87,9 +101,12 @@
                             <tr><th>エラー件数</th><td>{{ count($baseErrorsCmp) }}</td></tr>
                             <tr><th>BOM件数</th><td>{{ count($baseBomCmp) }}</td></tr>
                             <tr><th>価格内訳件数</th><td>{{ count($basePricingCmp) }}</td></tr>
-                            <tr><th>小計</th><td>{{ $baseTotalsCmp['subtotal'] ?? '-' }}</td></tr>
-                            <tr><th>税</th><td>{{ $baseTotalsCmp['tax'] ?? '-' }}</td></tr>
+                            {{-- <tr><th>小計</th><td>{{ $baseTotalsCmp['subtotal'] ?? '-' }}</td></tr>
+                            <tr><th>税</th><td>{{ $baseTotalsCmp['tax'] ?? '-' }}</td></tr> --}}
                             <tr><th>合計</th><td>{{ $baseTotalsCmp['total'] ?? '-' }}</td></tr>
+                            <tr><th>作成者アカウント表示名</th><td>{{ $req->requested_by_account_display_name ?? '-' }}</td></tr>
+                            <tr><th>登録メールアドレス</th><td>{{ $req->requested_by_email ?? '-' }}</td></tr>
+                            <tr><th>担当者</th><td>{{ $req->requested_by_assignee_name ?? '-' }}</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -102,9 +119,12 @@
                             <tr><th>エラー件数</th><td>{{ count($newErrorsCmp) }}</td></tr>
                             <tr><th>BOM件数</th><td>{{ count($newBomCmp) }}</td></tr>
                             <tr><th>価格内訳件数</th><td>{{ count($newPricingCmp) }}</td></tr>
-                            <tr><th>小計</th><td>{{ $newTotalsCmp['subtotal'] ?? '-' }}</td></tr>
-                            <tr><th>税</th><td>{{ $newTotalsCmp['tax'] ?? '-' }}</td></tr>
+                            {{-- <tr><th>小計</th><td>{{ $newTotalsCmp['subtotal'] ?? '-' }}</td></tr>
+                            <tr><th>税</th><td>{{ $newTotalsCmp['tax'] ?? '-' }}</td></tr> --}}
                             <tr><th>合計</th><td>{{ $newTotalsCmp['total'] ?? '-' }}</td></tr>
+                            <tr><th>作成者アカウント表示名</th><td>{{ $req->requested_by_account_display_name ?? '-' }}</td></tr>
+                            <tr><th>登録メールアドレス</th><td>{{ $req->requested_by_email ?? '-' }}</td></tr>
+                            <tr><th>担当者</th><td>{{ $req->requested_by_assignee_name ?? '-' }}</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -115,13 +135,20 @@
     @if(!empty($baseSvg))
         @include('partials.snapshot_bundle', [
             'panelTitle' => '初版（申請時点の現行版）',
-            'pdfUrl' => null,
+            'pdfUrl' => $baseSnapshotPdfUrl,
             'summaryItems' => [
-                ['label' => 'リクエストID', 'value' => $req->id],
                 ['label' => '対象', 'value' => $req->entity_type.' #'.$req->entity_id],
                 ['label' => 'ステータス', 'value' => $req->status],
-                ['label' => '版種別', 'value' => '初版'],
+                ['label' => '担当者', 'value' => $req->requested_by_assignee_name ?? '-'],
             ],
+            'showMemoCard' => true,
+            'memoValue' => $baseMemo,
+            'memoReadonly' => true,
+            'memoLabel' => 'メモ',
+            'showCreatorColumns' => true,
+            'creatorAccountDisplayName' => $req->requested_by_account_display_name ?? '',
+            'creatorEmail' => $req->requested_by_email ?? '',
+            'creatorAssigneeName' => $req->requested_by_assignee_name ?? '',
             'svg' => $baseSvg,
             'snapshot' => $baseSnapshotView,
             'config' => $baseConfig,
@@ -138,13 +165,23 @@
         'panelTitle' => '申請内容（新しい版）',
         'pdfUrl' => $snapshotPdfUrl,
         'summaryItems' => [
-            ['label' => 'リクエストID', 'value' => $req->id],
             ['label' => '対象', 'value' => $req->entity_type.' #'.$req->entity_id],
             ['label' => 'ステータス', 'value' => $req->status],
-            ['label' => '申請者', 'value' => $req->requested_by],
-            ['label' => '承認者', 'value' => $req->approved_by ?? '-'],
+            ['label' => '申請者', 'value' => $req->requested_by_account_display_name ?? ('ID: '.$req->requested_by)],
+            ['label' => '承認者', 'value' => $req->approved_by_account_display_name ?? ($req->approved_by ? 'ID: '.$req->approved_by : '-')],
             ['label' => 'コメント', 'value' => $req->comment ?? '（なし）'],
+            ['label' => '担当者', 'value' => $req->requested_by_assignee_name ?? '-'],
         ],
+        'showMemoCard' => true,
+        'memoValue' => ($requestMemo !== '' ? $requestMemo : ($req->memo ?? '')),
+        'memoUpdateUrl' => $memoUpdateUrl ?? null,
+        'memoButtonLabel' => 'メモ保存',
+        'memoReadonly' => true,
+        'memoLabel' => 'メモ',
+        'showCreatorColumns' => true,
+        'creatorAccountDisplayName' => $req->requested_by_account_display_name ?? '',
+        'creatorEmail' => $req->requested_by_email ?? '',
+        'creatorAssigneeName' => $req->requested_by_assignee_name ?? '',
         'svg' => $svg,
         'snapshot' => $snapshotView,
         'config' => $config,

@@ -28,11 +28,15 @@ final class AdminPriceBookController extends Controller
             'currency' => 'required|string|max:3',
             'valid_from' => 'nullable|date',
             'valid_to' => 'nullable|date',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         if (!empty($data['valid_from']) && !empty($data['valid_to']) && $data['valid_from'] > $data['valid_to']) {
             return back()->withErrors(['valid_to' => 'valid_toはvalid_from以降の日付にしてください'])->withInput();
         }
+
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $id = (int)DB::table('price_books')->insertGetId([
             'name' => $data['name'],
@@ -40,6 +44,7 @@ final class AdminPriceBookController extends Controller
             'currency' => $data['currency'],
             'valid_from' => $data['valid_from'] ?: null,
             'valid_to' => $data['valid_to'] ?: null,
+            'memo' => $memo,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -51,6 +56,7 @@ final class AdminPriceBookController extends Controller
             'currency' => $data['currency'],
             'valid_from' => $data['valid_from'] ?: null,
             'valid_to' => $data['valid_to'] ?: null,
+            'memo' => $memo,
         ]);
 
         return redirect()->route('admin.price-books.index')->with('status', '価格表を作成しました');
@@ -72,6 +78,7 @@ final class AdminPriceBookController extends Controller
                 'p.price_per_mm',
                 'p.formula',
                 'p.min_qty',
+                'p.memo',
                 's.sku_code',
                 's.name as sku_name',
             ]);
@@ -96,11 +103,15 @@ final class AdminPriceBookController extends Controller
             'currency' => 'required|string|max:3',
             'valid_from' => 'nullable|date',
             'valid_to' => 'nullable|date',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         if (!empty($data['valid_from']) && !empty($data['valid_to']) && $data['valid_from'] > $data['valid_to']) {
             return back()->withErrors(['valid_to' => 'valid_toはvalid_from以降の日付にしてください'])->withInput();
         }
+
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $before = (array)$book;
         DB::table('price_books')->where('id', $id)->update([
@@ -109,6 +120,7 @@ final class AdminPriceBookController extends Controller
             'currency' => $data['currency'],
             'valid_from' => $data['valid_from'] ?: null,
             'valid_to' => $data['valid_to'] ?: null,
+            'memo' => $memo,
             'updated_at' => now(),
         ]);
 

@@ -21,6 +21,10 @@
                 </div>
             </div>
         </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo', $template->memo) }}</textarea>
+        </div>
         <div style="margin-top:12px;">
             <button type="submit">更新</button>
         </div>
@@ -36,6 +40,7 @@
                 <th>バージョン</th>
                 <th>DSLバージョン</th>
                 <th>有効</th>
+                <th>メモ</th>
                 <th></th>
             </tr>
         </thead>
@@ -46,6 +51,7 @@
                     <td>{{ $v->version }}</td>
                     <td>{{ $v->dsl_version }}</td>
                     <td>{{ $v->active ? '有効' : '無効' }}</td>
+                    <td>{{ $v->memo ?? '-' }}</td>
                     <td><a href="{{ route('admin.templates.versions.edit', [$template->id, $v->id]) }}">編集</a></td>
                 </tr>
             @endforeach
@@ -74,6 +80,10 @@
         <div style="margin-top:8px;">
             <label>dsl_json</label>
             <textarea name="dsl_json">{{ old('dsl_json') }}</textarea>
+        </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo') }}</textarea>
         </div>
         <div style="margin-top:12px;">
             <button type="submit">追加</button>

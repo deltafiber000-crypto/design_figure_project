@@ -18,6 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestampTz('approved_at')->nullable();
             $table->text('comment')->nullable();
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->index(['entity_type', 'entity_id']);

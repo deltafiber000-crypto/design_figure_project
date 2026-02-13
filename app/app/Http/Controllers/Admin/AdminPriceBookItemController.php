@@ -23,6 +23,7 @@ final class AdminPriceBookItemController extends Controller
             'price_per_mm' => 'nullable|numeric',
             'formula' => 'nullable|string',
             'min_qty' => 'nullable|numeric',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         if (!in_array($data['pricing_model'], self::MODELS, true)) {
@@ -39,6 +40,9 @@ final class AdminPriceBookItemController extends Controller
             return back()->withErrors(['formula' => 'FORMULAはlinear形式のみ許可しています'])->withInput();
         }
 
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
+
         $id = (int)DB::table('price_book_items')->insertGetId([
             'price_book_id' => $priceBookId,
             'sku_id' => (int)$data['sku_id'],
@@ -47,6 +51,7 @@ final class AdminPriceBookItemController extends Controller
             'price_per_mm' => $pricePerMm,
             'formula' => $formula ?: null,
             'min_qty' => $data['min_qty'] ?? 1,
+            'memo' => $memo,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -92,6 +97,7 @@ final class AdminPriceBookItemController extends Controller
             'price_per_mm' => 'nullable|numeric',
             'formula' => 'nullable|string',
             'min_qty' => 'nullable|numeric',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         if (!in_array($data['pricing_model'], self::MODELS, true)) {
@@ -108,6 +114,9 @@ final class AdminPriceBookItemController extends Controller
             return back()->withErrors(['formula' => 'FORMULAはlinear形式のみ許可しています'])->withInput();
         }
 
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
+
         $before = (array)$item;
         DB::table('price_book_items')->where('id', $itemId)->update([
             'sku_id' => (int)$data['sku_id'],
@@ -116,6 +125,7 @@ final class AdminPriceBookItemController extends Controller
             'price_per_mm' => $pricePerMm,
             'formula' => $formula ?: null,
             'min_qty' => $data['min_qty'] ?? 1,
+            'memo' => $memo,
             'updated_at' => now(),
         ]);
 

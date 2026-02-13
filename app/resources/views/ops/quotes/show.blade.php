@@ -7,18 +7,6 @@
         <a href="{{ route('ops.quotes.index') }}">一覧へ戻る</a>
     </div>
 
-    <div class="row" style="margin:8px 0;">
-        <div class="col">ID: {{ $quote->id }}</div>
-        <div class="col">アカウント（表示名）: {{ $quote->account_display_name ?? '' }}</div>
-        <div class="col">顧客: {{ $quote->customer_names ?? '' }}</div>
-        <div class="col">ステータス: {{ $quote->status }}</div>
-    </div>
-    <div class="row" style="margin:8px 0;">
-        <div class="col">アカウント名: {{ $quote->account_name ?? '' }}</div>
-        <div class="col">社内呼称: {{ $quote->account_internal_name ?? '-' }}</div>
-        <div class="col">アカウントID: {{ $quote->account_id }}</div>
-    </div>
-
     @php
         $snapshotView = is_array($snapshot ?? null) ? $snapshot : [];
         if (!isset($snapshotView['totals']) && is_array($totals ?? null)) {
@@ -37,6 +25,9 @@
                 <th>ステータス</th>
                 <th>申請者</th>
                 <th>承認者</th>
+                <th>作成者アカウント表示名</th>
+                <th>登録メールアドレス</th>
+                <th>担当者</th>
                 <th>作成日</th>
                 <th></th>
             </tr>
@@ -46,14 +37,17 @@
                 <tr>
                     <td>{{ $r->id }}</td>
                     <td>{{ $r->status }}</td>
-                    <td>{{ $r->requested_by }}</td>
-                    <td>{{ $r->approved_by }}</td>
+                    <td>{{ $r->requested_by_account_display_name ?? ('ID: '.$r->requested_by) }}</td>
+                    <td>{{ $r->approved_by_account_display_name ?? ($r->approved_by ? 'ID: '.$r->approved_by : '-') }}</td>
+                    <td>{{ $r->requested_by_account_display_name ?? '-' }}</td>
+                    <td>{{ $r->requested_by_email ?? '-' }}</td>
+                    <td>{{ $r->requested_by_assignee_name ?? '-' }}</td>
                     <td>{{ $r->created_at }}</td>
                     <td><a href="{{ route('ops.change-requests.show', $r->id) }}">詳細</a></td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6">-</td>
+                    <td colspan="9">-</td>
                 </tr>
             @endforelse
         </tbody>
@@ -66,9 +60,16 @@
             ['label' => '見積ID', 'value' => $quote->id],
             ['label' => 'ステータス', 'value' => $quote->status],
             ['label' => 'アカウント表示名', 'value' => $quote->account_display_name ?? ''],
-            ['label' => '顧客', 'value' => $quote->customer_names ?? ''],
+            ['label' => '担当者', 'value' => $quote->assignee_name ?? '-'],
+            ['label' => '登録メールアドレス', 'value' => $quote->customer_emails ?? '-'],
             ['label' => '承認リクエスト件数', 'value' => is_countable($requests) ? count($requests) : 0],
         ],
+        'showMemoCard' => true,
+        'memoValue' => $quote->display_memo ?? $quote->memo ?? '',
+        'memoUpdateUrl' => route('ops.quotes.memo.update', $quote->id),
+        'memoButtonLabel' => 'メモ保存',
+        'memoReadonly' => true,
+        'showCreatorColumns' => false,
         'svg' => $svg,
         'snapshot' => $snapshotView,
         'config' => $config,
@@ -80,4 +81,3 @@
         'errorsJson' => $errorsJson ?? json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
     ])
 @endsection
-

@@ -14,6 +14,7 @@
                 <th>バージョン</th>
                 <th>通貨</th>
                 <th>有効期間</th>
+                <th>メモ</th>
                 <th></th>
             </tr>
         </thead>
@@ -25,6 +26,7 @@
                     <td>{{ $b->version }}</td>
                     <td>{{ $b->currency }}</td>
                     <td>{{ $b->valid_from }} ~ {{ $b->valid_to }}</td>
+                    <td>{{ $b->memo ?? '-' }}</td>
                     <td><a href="{{ route('admin.price-books.edit', $b->id) }}">編集</a></td>
                 </tr>
             @endforeach

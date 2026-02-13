@@ -20,7 +20,7 @@ return new class extends Migration
                 ->after('two_factor_secret')
                 ->nullable();
 
-            $table->timestamp('two_factor_confirmed_at')
+            $table->timestampTz('two_factor_confirmed_at')
                 ->after('two_factor_recovery_codes')
                 ->nullable();
         });

@@ -27,6 +27,10 @@
             <label>dsl_json</label>
             <textarea name="dsl_json">{{ old('dsl_json', $dslJson) }}</textarea>
         </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo', $version->memo) }}</textarea>
+        </div>
         <div style="margin-top:12px;">
             <button type="submit">更新</button>
             <a href="{{ route('admin.templates.edit', $template->id) }}">戻る</a>

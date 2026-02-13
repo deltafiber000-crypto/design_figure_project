@@ -49,6 +49,64 @@ final class SnapshotPdfService
         return $pdf->download($filename);
     }
 
+    public function downloadSnapshotBundleUi(array $viewData, string $filename): Response
+    {
+        $svgRaw = (string)($viewData['svg'] ?? '');
+        // UI一致を優先し、SVGの文字フォント指定は改変しない。
+        [$svg, $pngDataUri, $fontPath, $fontBoldPath] = $this->preparePdfGraphic($svgRaw, false);
+        $snapshotGraphicHtml = $pngDataUri
+            ? '<img src="' . e($pngDataUri) . '" alt="snapshot" style="width:100%;height:auto;display:block;">'
+            : $svg;
+
+        $pdf = Pdf::loadView('pdf.snapshot_bundle', array_merge($viewData, [
+            'fontPath' => $fontPath,
+            'fontBoldPath' => $fontBoldPath,
+            'snapshotGraphicHtml' => $snapshotGraphicHtml,
+        ]))
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('chroot', [base_path()])
+            ->setOption('defaultFont', 'JPFont');
+
+        return $pdf->download($filename);
+    }
+
+    public function downloadChangeRequestComparison(array $viewData, string $filename): Response
+    {
+        $baseSvgRaw = (string)($viewData['baseSvg'] ?? '');
+        $newSvgRaw = (string)($viewData['svg'] ?? '');
+
+        [$baseSvg, $basePngDataUri, $fontPath, $fontBoldPath] = $this->preparePdfGraphic($baseSvgRaw, false);
+        [$newSvg, $newPngDataUri, $fontPath2, $fontBoldPath2] = $this->preparePdfGraphic($newSvgRaw, false);
+
+        if (!$fontPath && $fontPath2) {
+            $fontPath = $fontPath2;
+        }
+        if (!$fontBoldPath && $fontBoldPath2) {
+            $fontBoldPath = $fontBoldPath2;
+        }
+
+        $baseGraphicHtml = $basePngDataUri
+            ? '<img src="' . e($basePngDataUri) . '" alt="base snapshot" style="width:100%;height:auto;display:block;">'
+            : $baseSvg;
+        $newGraphicHtml = $newPngDataUri
+            ? '<img src="' . e($newPngDataUri) . '" alt="request snapshot" style="width:100%;height:auto;display:block;">'
+            : $newSvg;
+
+        $pdf = Pdf::loadView('pdf.change_request_comparison', array_merge($viewData, [
+            'baseGraphicHtml' => $baseGraphicHtml,
+            'newGraphicHtml' => $newGraphicHtml,
+            'fontPath' => $fontPath,
+            'fontBoldPath' => $fontBoldPath,
+        ]))
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('chroot', [base_path()])
+            ->setOption('defaultFont', 'JPFont');
+
+        return $pdf->download($filename);
+    }
+
     public function buildFilename(
         string $type,
         ?int $accountId,
@@ -74,10 +132,29 @@ final class SnapshotPdfService
     private function resolveAccountDisplayName(?int $accountId): string
     {
         if (!$accountId) return 'unknown';
-        $row = DB::table('accounts')->where('id', $accountId)->first(['name', 'internal_name']);
+        $row = DB::table('accounts')->where('id', $accountId)->first(['internal_name']);
         if (!$row) return 'unknown';
-        $name = $row->internal_name ?: $row->name;
-        return $name ?: 'unknown';
+        $name = $row->internal_name ?? null;
+        if (is_string($name) && trim($name) !== '') {
+            return $name;
+        }
+        $userName = DB::table('account_user as au')
+            ->join('users as u', 'u.id', '=', 'au.user_id')
+            ->where('au.account_id', $accountId)
+            ->orderByRaw("
+                case au.role
+                    when 'customer' then 1
+                    when 'admin' then 2
+                    when 'sales' then 3
+                    else 9
+                end
+            ")
+            ->orderBy('au.user_id')
+            ->value('u.name');
+        if (is_string($userName) && trim($userName) !== '') {
+            return $userName;
+        }
+        return 'unknown';
     }
 
     private function resolveProcName(array $snapshot, array $derived, ?int $templateVersionId): string

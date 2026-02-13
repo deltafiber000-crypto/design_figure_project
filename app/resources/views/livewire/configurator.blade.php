@@ -1,16 +1,6 @@
 <div>
     <div style="display:flex; gap:16px; padding:16px; align-items:flex-start;">
         <div style="width: 250px; max-height: calc(100vh - 32px); overflow-y: auto; padding-right: 8px;">
-            {{-- <div style="margin-bottom:12px;">
-                <label>テンプレ選択</label>
-                <select wire:model.live.debounce.200ms="templateVersionId" style="width:100%;">
-                    <option value="">（未選択）</option>
-                    @foreach(($templateVersionOptions ?? []) as $opt)
-                        <option value="{{ $opt['id'] }}">{{ $opt['label'] }}</option>
-                    @endforeach
-                </select>
-            </div> --}}
-
             <h1 style="font-weight:700;">MFD変換</h1>
             <div style="margin-top:12px;">
                 <label>MFD変換の数（1 ~ 2）</label>
@@ -116,21 +106,23 @@
                     @endforeach
                 </select>
             </div>
+
+            <h2 style="font-weight:700;">メモ</h2>
+            <div style="margin-top:12px;">
+                <label>詳細な希望仕様など</label>
+                <textarea wire:model.live.debounce.600ms="memo" rows="4" style="width:100%;"></textarea>
+            </div>
         </div>
 
-        {{-- <div style="display:flex; gap:12px; align-items:center; margin-top:8px;"> --}}
         <div style="flex:1;">
             <button wire:click="newSession" type="button">新規ファイバセッション作成</button>
-            <button type="button" wire:click="saveNow" @if(!$dirty) disabled @endif>
-                保存
-            </button>
             @if($quoteEditId)
                 <button type="button" wire:click="requestQuoteEdit">
                     見積変更申請
                 </button>
             @else
                 <button type="button" wire:click="issueQuote">
-                    見積発行
+                    仕様書発行
                 </button>
             @endif
             {{-- 保存中 --}}
@@ -190,11 +182,13 @@ document.addEventListener('livewire:init', () => {
 
         const sessionId = c.get('sessionId');
         const config = c.get('config');
+        const memo = c.get('memo');
 
         const fd = new FormData();
         fd.append('_token', csrfToken);                 // CSRF（改ざん防止）
         fd.append('session_id', String(sessionId));     // 保存先セッション
         fd.append('config_json', JSON.stringify(config || {})); // config本体
+        fd.append('memo', memo ?? '');
 
         navigator.sendBeacon(autosaveUrl, fd);          // sendBeacon（離脱送信）
     });
@@ -211,11 +205,13 @@ document.addEventListener('livewire:init', () => {
 
         const sessionId = c.get('sessionId');
         const config = c.get('config');
+        const memo = c.get('memo');
 
         const fd = new FormData();
         fd.append('_token', csrfToken);
         fd.append('session_id', String(sessionId));
         fd.append('config_json', JSON.stringify(config || {}));
+        fd.append('memo', memo ?? '');
 
         navigator.sendBeacon(autosaveUrl, fd);
     });

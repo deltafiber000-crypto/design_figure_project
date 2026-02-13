@@ -11,18 +11,38 @@ final class ConfiguratorSessionController extends Controller
 {
     public function index()
     {
-        $customerNames = DB::table('account_user as au')
+        $customerEmails = DB::table('account_user as au')
             ->join('users as u', 'u.id', '=', 'au.user_id')
             ->whereColumn('au.account_id', 'cs.account_id')
             ->where('au.role', 'customer')
-            ->selectRaw("string_agg(u.name, ', ')");
+            ->selectRaw("string_agg(u.email, ', ')");
 
         $sessions = DB::table('configurator_sessions as cs')
             ->join('accounts as a', 'a.id', '=', 'cs.account_id')
             ->select('cs.*')
-            ->selectRaw("coalesce(nullif(a.internal_name, ''), a.name) as account_display_name")
-            ->addSelect('a.name as account_name', 'a.internal_name as account_internal_name')
-            ->selectSub($customerNames, 'customer_names')
+            ->selectRaw("
+                coalesce(
+                    nullif(a.internal_name, ''),
+                    (
+                        select u2.name
+                        from account_user as au2
+                        join users as u2 on u2.id = au2.user_id
+                        where au2.account_id = a.id
+                        order by
+                            case au2.role
+                                when 'customer' then 1
+                                when 'admin' then 2
+                                when 'sales' then 3
+                                else 9
+                            end,
+                            au2.user_id
+                        limit 1
+                    ),
+                    '-'
+                ) as account_display_name
+            ")
+            ->addSelect('a.internal_name as account_name', 'a.internal_name as account_internal_name', 'a.assignee_name')
+            ->selectSub($customerEmails, 'customer_emails')
             ->orderBy('cs.id', 'desc')
             ->limit(200)
             ->get();
@@ -32,18 +52,38 @@ final class ConfiguratorSessionController extends Controller
 
     public function show(int $id, \App\Services\SvgRenderer $renderer)
     {
-        $customerNames = DB::table('account_user as au')
+        $customerEmails = DB::table('account_user as au')
             ->join('users as u', 'u.id', '=', 'au.user_id')
             ->whereColumn('au.account_id', 'cs.account_id')
             ->where('au.role', 'customer')
-            ->selectRaw("string_agg(u.name, ', ')");
+            ->selectRaw("string_agg(u.email, ', ')");
 
         $session = DB::table('configurator_sessions as cs')
             ->join('accounts as a', 'a.id', '=', 'cs.account_id')
             ->select('cs.*')
-            ->selectRaw("coalesce(nullif(a.internal_name, ''), a.name) as account_display_name")
-            ->addSelect('a.name as account_name', 'a.internal_name as account_internal_name')
-            ->selectSub($customerNames, 'customer_names')
+            ->selectRaw("
+                coalesce(
+                    nullif(a.internal_name, ''),
+                    (
+                        select u2.name
+                        from account_user as au2
+                        join users as u2 on u2.id = au2.user_id
+                        where au2.account_id = a.id
+                        order by
+                            case au2.role
+                                when 'customer' then 1
+                                when 'admin' then 2
+                                when 'sales' then 3
+                                else 9
+                            end,
+                            au2.user_id
+                        limit 1
+                    ),
+                    '-'
+                ) as account_display_name
+            ")
+            ->addSelect('a.internal_name as account_name', 'a.internal_name as account_internal_name', 'a.assignee_name')
+            ->selectSub($customerEmails, 'customer_emails')
             ->where('cs.id', $id)
             ->first();
         if (!$session) abort(404);
@@ -53,9 +93,32 @@ final class ConfiguratorSessionController extends Controller
         $errors = $this->decodeJson($session->validation_errors) ?? [];
 
         $requests = DB::table('change_requests')
-            ->where('entity_type', 'configurator_session')
-            ->where('entity_id', $id)
-            ->orderBy('id', 'desc')
+            ->where('change_requests.entity_type', 'configurator_session')
+            ->where('change_requests.entity_id', $id)
+            ->leftJoin('users as requester', 'requester.id', '=', 'change_requests.requested_by')
+            ->leftJoin('users as approver', 'approver.id', '=', 'change_requests.approved_by')
+            ->select('change_requests.*')
+            ->addSelect('requester.email as requested_by_email', 'approver.email as approved_by_email')
+            ->selectSub(
+                DB::table('account_user as au')
+                    ->join('accounts as a', 'a.id', '=', 'au.account_id')
+                    ->join('users as u', 'u.id', '=', 'au.user_id')
+                    ->whereColumn('au.user_id', 'change_requests.requested_by')
+                    ->selectRaw("coalesce(nullif(a.internal_name, ''), u.name)")
+                    ->orderBy('au.account_id')
+                    ->limit(1),
+                'requested_by_account_display_name'
+            )
+            ->selectSub(
+                DB::table('account_user as au')
+                    ->join('accounts as a', 'a.id', '=', 'au.account_id')
+                    ->whereColumn('au.user_id', 'change_requests.requested_by')
+                    ->select('a.assignee_name')
+                    ->orderBy('au.account_id')
+                    ->limit(1),
+                'requested_by_assignee_name'
+            )
+            ->orderBy('change_requests.id', 'desc')
             ->get();
 
         $svg = $renderer->render($config, $derived, $errors);
@@ -72,26 +135,104 @@ final class ConfiguratorSessionController extends Controller
 
     public function downloadSnapshotPdf(int $id, \App\Services\SvgRenderer $renderer, SnapshotPdfService $pdfService)
     {
-        $session = DB::table('configurator_sessions')->where('id', $id)->first();
+        $customerEmails = DB::table('account_user as au')
+            ->join('users as u', 'u.id', '=', 'au.user_id')
+            ->whereColumn('au.account_id', 'cs.account_id')
+            ->where('au.role', 'customer')
+            ->selectRaw("string_agg(u.email, ', ')");
+
+        $session = DB::table('configurator_sessions as cs')
+            ->join('accounts as a', 'a.id', '=', 'cs.account_id')
+            ->select('cs.*')
+            ->selectRaw("
+                coalesce(
+                    nullif(a.internal_name, ''),
+                    (
+                        select u2.name
+                        from account_user as au2
+                        join users as u2 on u2.id = au2.user_id
+                        where au2.account_id = a.id
+                        order by
+                            case au2.role
+                                when 'customer' then 1
+                                when 'admin' then 2
+                                when 'sales' then 3
+                                else 9
+                            end,
+                            au2.user_id
+                        limit 1
+                    ),
+                    '-'
+                ) as account_display_name
+            ")
+            ->addSelect('a.internal_name as account_name', 'a.internal_name as account_internal_name', 'a.assignee_name')
+            ->selectSub($customerEmails, 'customer_emails')
+            ->where('cs.id', $id)
+            ->first();
         if (!$session) abort(404);
 
         $config = $this->decodeJson($session->config) ?? [];
         $derived = $this->decodeJson($session->derived) ?? [];
         $errors = $this->decodeJson($session->validation_errors) ?? [];
+        $bom = is_array($derived['bom'] ?? null) ? $derived['bom'] : [];
+        $pricingRaw = $derived['pricing'] ?? [];
+        $pricingItems = is_array($pricingRaw['items'] ?? null) ? $pricingRaw['items'] : (is_array($pricingRaw) ? $pricingRaw : []);
+        $totals = is_array($pricingRaw) ? [
+            'subtotal' => $pricingRaw['subtotal'] ?? null,
+            'tax' => $pricingRaw['tax'] ?? null,
+            'total' => $pricingRaw['total'] ?? null,
+        ] : [];
+
+        $requestCount = (int)DB::table('change_requests')
+            ->where('entity_type', 'configurator_session')
+            ->where('entity_id', $id)
+            ->count();
 
         $svg = $renderer->render($config, $derived, $errors);
+        $snapshotView = [
+            'template_version_id' => (int)$session->template_version_id,
+            'price_book_id' => $pricingRaw['price_book_id'] ?? null,
+            'config' => $config,
+            'derived' => $derived,
+            'validation_errors' => $errors,
+            'bom' => $bom,
+            'pricing' => $pricingItems,
+            'totals' => $totals,
+            'memo' => $session->memo,
+        ];
 
         $filename = $pdfService->buildFilename(
             'configurator',
             (int)$session->account_id,
             (int)$session->template_version_id,
-            ['bom' => $derived['bom'] ?? null, 'template_version_id' => (int)$session->template_version_id],
+            ['bom' => $bom, 'template_version_id' => (int)$session->template_version_id],
             $config,
             $derived,
             (string)$session->updated_at
         );
 
-        return $pdfService->download('構成セッション スナップショット', $svg, $filename);
+        return $pdfService->downloadSnapshotBundleUi([
+            'title' => '構成セッション スナップショット',
+            'panelTitle' => '構成セッションスナップショット',
+            'summaryItems' => [
+                ['label' => 'セッションID', 'value' => $session->id],
+                ['label' => 'ステータス', 'value' => $session->status],
+                ['label' => 'アカウント表示名', 'value' => $session->account_display_name ?? ''],
+                ['label' => '担当者', 'value' => $session->assignee_name ?? '-'],
+                ['label' => '登録メールアドレス', 'value' => $session->customer_emails ?? '-'],
+                ['label' => '承認リクエスト件数', 'value' => $requestCount],
+            ],
+            'showMemoCard' => true,
+            'memoValue' => $session->memo ?? '',
+            'memoLabel' => 'メモ',
+            'showCreatorColumns' => false,
+            'summaryTableColumns' => 4,
+            'svg' => $svg,
+            'snapshot' => $snapshotView,
+            'config' => $config,
+            'derived' => $derived,
+            'errors' => $errors,
+        ], $filename);
     }
 
     public function editRequest(int $id)
@@ -181,6 +322,25 @@ final class ConfiguratorSessionController extends Controller
         ]);
 
         return redirect()->route('ops.sessions.show', $id)->with('status', '承認リクエストを送信しました');
+    }
+
+    public function updateMemo(Request $request, int $id)
+    {
+        $session = DB::table('configurator_sessions')->where('id', $id)->first();
+        if (!$session) abort(404);
+
+        $data = $request->validate([
+            'memo' => 'nullable|string|max:5000',
+        ]);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
+
+        DB::table('configurator_sessions')->where('id', $id)->update([
+            'memo' => $memo,
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('ops.sessions.show', $id)->with('status', 'セッションメモを更新しました');
     }
 
     private function decodeJson(mixed $value): ?array

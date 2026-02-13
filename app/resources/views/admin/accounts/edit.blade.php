@@ -1,19 +1,7 @@
 @extends('admin.layout')
 
 @section('content')
-    <h1>アカウント編集</h1>
-
-    <div class="row" style="margin:8px 0;">
-        <div class="col">ID: {{ $account->id }}</div>
-        <div class="col">種別: {{ $account->account_type }}</div>
-    </div>
-    <div style="margin:8px 0;">アカウント登録名: {{ $account->name }}</div>
-    <div style="margin:8px 0;">
-        権限サマリー:
-        admin={{ $roleCounts['admin'] ?? 0 }}
-        / sales={{ $roleCounts['sales'] ?? 0 }}
-        / customer={{ $roleCounts['customer'] ?? 0 }}
-    </div>
+    <h1>アカウント編集 #{{ $account->id }}</h1>
 
     <form method="POST" action="{{ route('admin.accounts.update', $account->id) }}">
         @csrf
@@ -64,6 +52,7 @@
                 <th>ユーザー名</th>
                 <th>メール</th>
                 <th>role</th>
+                <th>メモ</th>
                 <th>付与日時</th>
             </tr>
         </thead>
@@ -74,11 +63,19 @@
                     <td>{{ $m->user_name }}</td>
                     <td>{{ $m->user_email }}</td>
                     <td>{{ $m->role }}</td>
+                    <td>
+                        <form method="POST" action="{{ route('admin.accounts.members.memo.update', [$account->id, $m->user_id]) }}">
+                            @csrf
+                            @method('PUT')
+                            <textarea name="memo" rows="2" style="width:100%;">{{ old('memo', $m->memo) }}</textarea>
+                            <button type="submit">保存</button>
+                        </form>
+                    </td>
                     <td>{{ $m->assigned_at }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5">このアカウントに紐づくユーザーは未設定です。</td>
+                    <td colspan="6">このアカウントに紐づくユーザーは未設定です。</td>
                 </tr>
             @endforelse
         </tbody>

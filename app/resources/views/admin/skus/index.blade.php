@@ -43,6 +43,7 @@
                 <th>名称</th>
                 <th>カテゴリ</th>
                 <th>有効</th>
+                <th>メモ</th>
                 <th>更新日</th>
                 <th></th>
             </tr>
@@ -55,6 +56,7 @@
                     <td>{{ $s->name }}</td>
                     <td>{{ $s->category }}</td>
                     <td>{{ $s->active ? '有効' : '無効' }}</td>
+                    <td>{{ $s->memo ?? '-' }}</td>
                     <td>{{ $s->updated_at }}</td>
                     <td><a href="{{ route('admin.skus.edit', $s->id) }}">編集</a></td>
                 </tr>

@@ -45,6 +45,10 @@
             <label>式（JSON）</label>
             <textarea name="formula">{{ old('formula', $formulaJson) }}</textarea>
         </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo', $item->memo) }}</textarea>
+        </div>
         <div style="margin-top:12px;">
             <button type="submit">更新</button>
             <a href="{{ route('admin.price-books.edit', $book->id) }}">戻る</a>

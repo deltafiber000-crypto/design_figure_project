@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="utf-8">
-    <title>見積 #{{ $quote->id ?? '' }}</title>
+    <title>仕様書 #{{ $quote->id ?? '' }}</title>
     @php
         $fontSrc = !empty($fontPath ?? null) && str_starts_with((string)$fontPath, '/')
             ? 'file://' . $fontPath
@@ -62,11 +62,10 @@
         $errors = is_array($snapshotView['validation_errors'] ?? null) ? $snapshotView['validation_errors'] : [];
     @endphp
 
-    <h1>見積 #{{ $quote->id ?? '' }}</h1>
-    <h2>概要</h2>
+    <h1>仕様書 #{{ $quote->id ?? '' }}</h1>
     <table>
         <tbody>
-            <tr><th>見積id</th><td>{{ $quote->id ?? '' }}</td></tr>
+            <tr><th>仕様書id</th><td>{{ $quote->id ?? '' }}</td></tr>
             <tr><th>作成日時</th><td>{{ $quote->created_at ?? '' }}</td></tr>
             <tr><th>ユーザー名</th><td>{{ $quote->account_name ?? '-' }}</td></tr>
             <tr><th>担当者名</th><td>{{ $quote->account_assignee_name ?? '-' }}</td></tr>
@@ -88,6 +87,10 @@
         'showPriceColumns' => false,
         'showSkuOnlyWhenPriced' => true,
         'showJsonSection' => false,
+        'showMemoCard' => true,
+        'memoValue' => $quote->display_memo ?? $quote->memo ?? '',
+        'memoReadonly' => true,
+        'memoLabel' => 'メモ（詳細な希望仕様などご記入ください）',
         'svg' => $snapshotGraphicHtml ?? '',
         'snapshot' => $snapshotView,
         'config' => $config,

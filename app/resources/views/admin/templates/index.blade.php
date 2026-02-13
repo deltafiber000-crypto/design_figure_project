@@ -13,6 +13,7 @@
                 <th>テンプレートコード</th>
                 <th>名称</th>
                 <th>有効</th>
+                <th>メモ</th>
                 <th></th>
             </tr>
         </thead>
@@ -23,6 +24,7 @@
                     <td>{{ $t->template_code }}</td>
                     <td>{{ $t->name }}</td>
                     <td>{{ $t->active ? '有効' : '無効' }}</td>
+                    <td>{{ $t->memo ?? '-' }}</td>
                     <td><a href="{{ route('admin.templates.edit', $t->id) }}">編集</a></td>
                 </tr>
             @endforeach

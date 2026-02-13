@@ -21,36 +21,6 @@
             'price_book_id' => null,
         ];
     @endphp
-{{-- 
-    <h3>承認リクエスト</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>ステータス</th>
-                <th>申請者</th>
-                <th>承認者</th>
-                <th>作成日</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($requests as $r)
-                <tr>
-                    <td>{{ $r->id }}</td>
-                    <td>{{ $r->status }}</td>
-                    <td>{{ $r->requested_by }}</td>
-                    <td>{{ $r->approved_by }}</td>
-                    <td>{{ $r->created_at }}</td>
-                    <td><a href="{{ route('ops.change-requests.show', $r->id) }}">詳細</a></td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="6">-</td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table> --}}
 
     @include('partials.snapshot_bundle', [
         'panelTitle' => '構成セッションスナップショット',
@@ -59,9 +29,16 @@
             ['label' => 'セッションID', 'value' => $session->id],
             ['label' => 'ステータス', 'value' => $session->status],
             ['label' => 'アカウント表示名', 'value' => $session->account_display_name ?? ''],
-            ['label' => '顧客', 'value' => $session->customer_names ?? ''],
+            ['label' => '担当者', 'value' => $session->assignee_name ?? '-'],
+            ['label' => '登録メールアドレス', 'value' => $session->customer_emails ?? '-'],
             ['label' => '承認リクエスト件数', 'value' => is_countable($requests) ? count($requests) : 0],
         ],
+        'showMemoCard' => true,
+        'memoValue' => $session->memo ?? '',
+        'memoUpdateUrl' => route('ops.sessions.memo.update', $session->id),
+        'memoButtonLabel' => 'メモ保存',
+        'memoReadonly' => true,
+        'showCreatorColumns' => false,
         'svg' => $svg,
         'snapshot' => $snapshotView,
         'config' => $config,
@@ -72,5 +49,5 @@
         'derivedJson' => $derivedJson,
         'errorsJson' => $errorsJson,
     ])
-@endsection
 
+@endsection

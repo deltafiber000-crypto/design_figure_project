@@ -26,6 +26,8 @@ final class Configurator extends Component
     public ?int $quoteEditId = null;
     public ?array $initialConfig = null;
     public ?int $initialTemplateVersionId = null;
+    public ?string $initialMemo = null;
+    public ?string $memo = null;
     public bool $isSaving = false;      // 保存中フラグ
     public ?string $saveError = null;   // 保存失敗メッセージ（なければnull）
     public bool $dirty = false;       // 未保存フラグ
@@ -33,7 +35,7 @@ final class Configurator extends Component
     private float $lastSavedAt = 0.0;       // 最終保存時刻（秒）
     private float $saveIntervalSec = 1.0;   // 保存間隔（秒）
 
-    public function mount(?int $quoteEditId = null, ?array $initialConfig = null, ?int $initialTemplateVersionId = null): void
+    public function mount(?int $quoteEditId = null, ?array $initialConfig = null, ?int $initialTemplateVersionId = null, ?string $initialMemo = null): void
     {
         if ($quoteEditId) {
             $this->quoteEditId = $quoteEditId;
@@ -43,6 +45,9 @@ final class Configurator extends Component
         }
         if ($initialTemplateVersionId) {
             $this->initialTemplateVersionId = $initialTemplateVersionId;
+        }
+        if ($initialMemo !== null) {
+            $this->initialMemo = $initialMemo;
         }
 
         $cookieName = 'config_session_id';
@@ -57,6 +62,7 @@ final class Configurator extends Component
                 'config' => $this->initialConfig,
                 'derived' => [],
                 'validation_errors' => [],
+                'memo' => $this->normalizeMemo($this->initialMemo),
             ]);
 
             Cookie::queue(
@@ -67,7 +73,26 @@ final class Configurator extends Component
         } else {
             $sid = request()->cookie($cookieName);
             if (is_numeric($sid)) {
-                $session = ConfiguratorSession::find((int)$sid);
+                $candidate = ConfiguratorSession::find((int)$sid);
+                if ($candidate) {
+                    $userId = (int)auth()->id();
+                    if ($userId > 0) {
+                        if ($this->sessionBelongsToUser($candidate, $userId)) {
+                            $session = $candidate;
+                        } elseif ($this->sessionIsUnclaimed($candidate)) {
+                            // ゲスト状態で作成したセッションを、直後ログインしたユーザーへ引き継ぐ
+                            $candidate->account_id = $this->resolveAccountId();
+                            $candidate->updated_at = now();
+                            $candidate->save();
+                            $session = $candidate->fresh();
+                        }
+                    } else {
+                        // ゲストは未紐付けaccountのセッションのみ扱う
+                        if ($this->sessionIsUnclaimed($candidate)) {
+                            $session = $candidate;
+                        }
+                    }
+                }
             }
 
             if (!$session) {
@@ -99,6 +124,7 @@ final class Configurator extends Component
         $this->config = $session->config ?? $this->defaultConfig();
         $this->derived = $session->derived ?? [];
         $this->errors = $session->validation_errors ?? [];
+        $this->memo = $session->memo;
         $this->skuOptions = $this->buildSkuOptions();
         $this->skuNameMap = $this->buildSkuNameMap();
         $this->skuSvgMap = $this->buildSkuSvgMap();
@@ -235,24 +261,77 @@ final class Configurator extends Component
 
     private function resolveAccountId(): int
     {
-        $userId = auth()->id();
-        if ($userId) {
+        $user = auth()->user();
+        if ($user) {
+            $userId = (int)$user->id;
             $accountId = (int)DB::table('account_user')
                 ->where('user_id', $userId)
+                ->orderByRaw("
+                    case role
+                        when 'customer' then 1
+                        when 'admin' then 2
+                        when 'sales' then 3
+                        else 9
+                    end
+                ")
                 ->orderBy('account_id')
                 ->value('account_id');
             if ($accountId > 0) return $accountId;
+
+            return (int)DB::transaction(function () use ($userId, $user) {
+                $accountId = (int)DB::table('accounts')->insertGetId([
+                    'account_type' => 'B2C',
+                    'internal_name' => trim((string)$user->name) !== '' ? (string)$user->name : null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('account_user')->insert([
+                    'account_id' => $accountId,
+                    'user_id' => $userId,
+                    'role' => 'customer',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return $accountId;
+            });
         }
 
-        $id = (int)DB::table('accounts')->orderBy('id')->value('id');
-        if ($id > 0) return $id;
+        if ($this->sessionId) {
+            $sessionAccountId = (int)DB::table('configurator_sessions')
+                ->where('id', (int)$this->sessionId)
+                ->value('account_id');
+            if ($sessionAccountId > 0) {
+                return $sessionAccountId;
+            }
+        }
 
+        // 未ログイン時は未紐付けの一時accountを都度作成（固定accountへの誤紐付けを防止）
         return (int)DB::table('accounts')->insertGetId([
-            'account_type' => 'B2B',
-            'name' => 'Auto Account',
+            'account_type' => 'B2C',
+            'internal_name' => null,
+            'memo' => 'GUEST_TEMP',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function sessionBelongsToUser(ConfiguratorSession $session, int $userId): bool
+    {
+        if ($userId <= 0) return false;
+
+        return DB::table('account_user')
+            ->where('account_id', (int)$session->account_id)
+            ->where('user_id', $userId)
+            ->exists();
+    }
+
+    private function sessionIsUnclaimed(ConfiguratorSession $session): bool
+    {
+        return !DB::table('account_user')
+            ->where('account_id', (int)$session->account_id)
+            ->exists();
     }
 
     private function ensureTemplateVersionId(): int
@@ -355,6 +434,7 @@ final class Configurator extends Component
                 'config' => $this->config,
                 'derived' => $this->derived,
                 'validation_errors' => $this->errors,
+                'memo' => $this->normalizeMemo($this->memo),
                 'status' => 'DRAFT',
             ];
             if (!empty($extra)) {
@@ -388,6 +468,11 @@ final class Configurator extends Component
     public function updated(string $name, mixed $value): void
     {
         $this->dirty = true;
+
+        if ($name === 'memo') {
+            $this->autoSaveIfDue();
+            return;
+        }
 
         if (!str_starts_with($name, 'config.')) return;
 
@@ -429,7 +514,14 @@ final class Configurator extends Component
 
         /** @var \App\Services\QuoteService $quoteService */
         $quoteService = app(\App\Services\QuoteService::class);
-        $quoteId = $quoteService->createFromSession($this->sessionId, auth()->id(), false);
+        try {
+            $quoteId = $quoteService->createFromSession($this->sessionId, auth()->id(), false);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->saveError = '見積発行に失敗しました。ログイン状態とアカウント紐付けを確認してください。';
+            $this->saveStatus = '見積発行失敗(TOKYO): ' . now()->format('H:i:s');
+            return null;
+        }
 
         return redirect()->to('/quotes/' . $quoteId);
     }
@@ -462,6 +554,7 @@ final class Configurator extends Component
             'config' => $this->config,
             'derived' => $derived,
             'validation_errors' => $errors,
+            'memo' => $this->normalizeMemo($this->memo),
             'bom' => $bom,
             'pricing' => $pricingResult['items'] ?? [],
             'totals' => [
@@ -471,9 +564,18 @@ final class Configurator extends Component
             ],
         ];
 
-        $baseSnapshot = DB::table('quotes')->where('id', $this->quoteEditId)->value('snapshot');
-        $baseSnapshot = is_array($baseSnapshot) ? $baseSnapshot : json_decode((string)$baseSnapshot, true);
+        $quoteRow = DB::table('quotes')
+            ->where('id', $this->quoteEditId)
+            ->first(['snapshot', 'memo']);
+        $baseSnapshot = is_array($quoteRow?->snapshot) ? $quoteRow?->snapshot : json_decode((string)($quoteRow?->snapshot ?? ''), true);
         if (!is_array($baseSnapshot)) $baseSnapshot = [];
+        $nameSource = (string)($baseSnapshot['account_display_name_source'] ?? 'internal_name');
+        if (!in_array($nameSource, ['internal_name', 'user_name'], true)) {
+            $nameSource = 'internal_name';
+        }
+        $snapshot['account_display_name_source'] = $nameSource;
+        $baseSnapshot['account_display_name_source'] = $nameSource;
+        $baseSnapshot['memo'] = $this->normalizeMemo((string)($quoteRow?->memo ?? ''));
 
         DB::table('change_requests')->insert([
             'entity_type' => 'quote',
@@ -674,6 +776,12 @@ final class Configurator extends Component
             . '</svg>';
 
         return 'data:image/svg+xml;utf8,' . rawurlencode($svg);
+    }
+
+    private function normalizeMemo(?string $memo): ?string
+    {
+        $v = trim((string)$memo);
+        return $v === '' ? null : $v;
     }
 
     private function applyToleranceDefaultsToFibers(): void

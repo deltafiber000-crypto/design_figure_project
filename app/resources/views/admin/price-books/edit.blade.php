@@ -29,6 +29,10 @@
                 <input type="date" name="valid_to" value="{{ old('valid_to', $book->valid_to) }}">
             </div>
         </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo', $book->memo) }}</textarea>
+        </div>
         <div style="margin-top:12px;">
             <button type="submit">更新</button>
         </div>
@@ -47,6 +51,7 @@
                 <th>mm単価</th>
                 <th>式</th>
                 <th>最小数量</th>
+                <th>メモ</th>
                 <th></th>
             </tr>
         </thead>
@@ -60,6 +65,7 @@
                     <td>{{ $it->price_per_mm }}</td>
                     <td><span class="muted">{{ $it->formula }}</span></td>
                     <td>{{ $it->min_qty }}</td>
+                    <td>{{ $it->memo ?? '-' }}</td>
                     <td class="actions">
                         <a href="{{ route('admin.price-books.items.edit', [$book->id, $it->id]) }}">編集</a>
                         <form method="POST" action="{{ route('admin.price-books.items.destroy', [$book->id, $it->id]) }}">
@@ -111,6 +117,10 @@
                 <label>式（JSON）</label>
                 <input type="text" name="formula" placeholder='{"type":"linear","base":500,"k":1.2}'>
             </div>
+        </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo') }}</textarea>
         </div>
         <div style="margin-top:12px;">
             <button type="submit">追加</button>

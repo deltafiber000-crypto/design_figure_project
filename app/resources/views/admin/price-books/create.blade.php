@@ -28,6 +28,10 @@
                 <input type="date" name="valid_to" value="{{ old('valid_to') }}">
             </div>
         </div>
+        <div style="margin-top:8px;">
+            <label>メモ</label>
+            <textarea name="memo">{{ old('memo') }}</textarea>
+        </div>
         <div style="margin-top:12px;">
             <button type="submit">保存</button>
         </div>

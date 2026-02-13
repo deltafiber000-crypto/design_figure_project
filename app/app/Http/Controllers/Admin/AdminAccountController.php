@@ -26,16 +26,38 @@ final class AdminAccountController extends Controller
             ->selectRaw("string_agg(u.name || ' (' || au.role || ')', ', ' order by u.id)")
             ->whereColumn('au.account_id', 'a.id');
 
+        $fallbackUserName = DB::table('account_user as au')
+            ->join('users as u', 'u.id', '=', 'au.user_id')
+            ->whereColumn('au.account_id', 'a.id')
+            ->orderByRaw("
+                case au.role
+                    when 'customer' then 1
+                    when 'admin' then 2
+                    when 'sales' then 3
+                    else 9
+                end
+            ")
+            ->orderBy('au.user_id')
+            ->select('u.name')
+            ->limit(1);
+
         $query = DB::table('accounts as a')
             ->select('a.*')
             ->selectSub($roleSummary, 'role_summary')
-            ->selectSub($memberSummary, 'member_summary');
+            ->selectSub($memberSummary, 'member_summary')
+            ->selectSub($fallbackUserName, 'fallback_user_name');
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
-                $sub->where('a.name', 'ilike', "%{$q}%")
-                    ->orWhere('a.internal_name', 'ilike', "%{$q}%")
+                $sub->where('a.internal_name', 'ilike', "%{$q}%")
                     ->orWhere('a.assignee_name', 'ilike', "%{$q}%")
-                    ->orWhere('a.memo', 'ilike', "%{$q}%");
+                    ->orWhere('a.memo', 'ilike', "%{$q}%")
+                    ->orWhereExists(function ($sq) use ($q) {
+                        $sq->selectRaw('1')
+                            ->from('account_user as au')
+                            ->join('users as u', 'u.id', '=', 'au.user_id')
+                            ->whereColumn('au.account_id', 'a.id')
+                            ->where('u.name', 'ilike', "%{$q}%");
+                    });
             });
         }
 
@@ -58,6 +80,7 @@ final class AdminAccountController extends Controller
             ->select(
                 'au.user_id',
                 'au.role',
+                'au.memo',
                 'au.created_at as assigned_at',
                 'u.name as user_name',
                 'u.email as user_email'
@@ -112,5 +135,45 @@ final class AdminAccountController extends Controller
         app(AuditLogger::class)->log((int)auth()->id(), 'ACCOUNT_UPDATED', 'account', $id, $before, $after);
 
         return redirect()->route('admin.accounts.edit', $id)->with('status', 'アカウントを更新しました');
+    }
+
+    public function updateMemberMemo(Request $request, int $id, int $userId)
+    {
+        $account = DB::table('accounts')->where('id', $id)->first();
+        if (!$account) abort(404);
+
+        $exists = DB::table('account_user')
+            ->where('account_id', $id)
+            ->where('user_id', $userId)
+            ->exists();
+        if (!$exists) abort(404);
+
+        $data = $request->validate([
+            'memo' => 'nullable|string|max:5000',
+        ]);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
+
+        $before = (array)DB::table('account_user')
+            ->where('account_id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
+        DB::table('account_user')
+            ->where('account_id', $id)
+            ->where('user_id', $userId)
+            ->update([
+                'memo' => $memo,
+                'updated_at' => now(),
+            ]);
+
+        $after = (array)DB::table('account_user')
+            ->where('account_id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
+        app(AuditLogger::class)->log((int)auth()->id(), 'ACCOUNT_USER_MEMO_UPDATED', 'account_user', null, $before, $after);
+
+        return redirect()->route('admin.accounts.edit', $id)->with('status', '権限設定メモを更新しました');
     }
 }

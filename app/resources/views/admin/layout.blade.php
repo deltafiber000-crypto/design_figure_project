@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? '管理' }}</title>
+    <title>{{ $title ?? '受注販売管理システム' }}</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; padding:16px; }
         nav a { margin-right: 12px; }
@@ -20,13 +20,13 @@
 </head>
 <body>
     <nav>
-        <a href="{{ route('admin.accounts.index') }}">アカウント編集</a>
-        <a href="{{ route('ops.sessions.index') }}">セッション参照</a>
-        <a href="{{ route('ops.quotes.index') }}">見積参照</a>
-        <a href="{{ route('admin.skus.index') }}">商品パーツ(SKU)</a>
-        <a href="{{ route('admin.price-books.index') }}">パーツ・納品物価格表</a>
-        <a href="{{ route('admin.templates.index') }}">納品物ルールテンプレ(DSL)</a>
-        <a href="{{ route('admin.change-requests.index') }}">見積編集承認リクエスト</a>
+        <a href="{{ route('admin.accounts.index') }}">アカウント</a>
+        <a href="{{ route('ops.sessions.index') }}">仕様書セッション</a>
+        <a href="{{ route('ops.quotes.index') }}">仕様書見積</a>
+        <a href="{{ route('admin.skus.index') }}">パーツ(SKU)</a>
+        <a href="{{ route('admin.price-books.index') }}">パーツ価格表</a>
+        <a href="{{ route('admin.templates.index') }}">納品規則テンプレ(DSL)</a>
+        <a href="{{ route('admin.change-requests.index') }}">編集承認リクエスト</a>
         <a href="{{ route('admin.audit-logs.index') }}">全作業監査ログ</a>
     </nav>
 

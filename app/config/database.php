@@ -96,9 +96,8 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
-            'options' => (extension_loaded('pdo_pgsql') && defined('PDO::PGSQL_ATTR_INIT_COMMAND'))
-                ? [\PDO::PGSQL_ATTR_INIT_COMMAND => "SET TIME ZONE 'Asia/Tokyo'"]
-                : [],
+            'timezone' => env('DB_TIMEZONE', 'Asia/Tokyo'),
+            'options' => [],
         ],
 
         'sqlsrv' => [

@@ -10,8 +10,10 @@ return new class extends Migration
     {
         Schema::create('accounts', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->enum('account_type', ['B2B', 'B2C']);
-            $table->string('name');
+            $table->enum('account_type', ['B2B', 'B2C'])->nullable();
+            $table->string('internal_name')->nullable();
+            $table->text('memo')->nullable();
+            $table->string('assignee_name')->nullable();
             $table->timestampsTz();
         });
 
@@ -19,6 +21,7 @@ return new class extends Migration
             $table->unsignedBigInteger('account_id');
             $table->unsignedBigInteger('user_id'); // Laravel標準usersテーブルを使う想定
             $table->enum('role', ['admin', 'sales', 'customer']);
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->primary(['account_id', 'user_id']);
@@ -33,6 +36,7 @@ return new class extends Migration
             $table->enum('category', ['PROC', 'SLEEVE', 'FIBER', 'TUBE', 'CONNECTOR']);
             $table->boolean('active')->default(true);
             $table->jsonb('attributes')->default('{}'); // SKU属性（研磨仕様などもここに）
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->index('category');
@@ -45,6 +49,7 @@ return new class extends Migration
             $table->string('currency')->default('JPY');
             $table->date('valid_from')->nullable();
             $table->date('valid_to')->nullable();
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->unique(['name', 'version']);
@@ -61,6 +66,7 @@ return new class extends Migration
             $table->jsonb('formula')->nullable();                 // FORMULA（JSON式）
 
             $table->decimal('min_qty', 12, 3)->default(1);
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->foreign('price_book_id')->references('id')->on('price_books');
@@ -75,6 +81,7 @@ return new class extends Migration
             $table->string('template_code')->unique(); // MFD_CONVERSION_FIBER
             $table->string('name');
             $table->boolean('active')->default(true);
+            $table->text('memo')->nullable();
             $table->timestampsTz();
         });
 
@@ -85,6 +92,7 @@ return new class extends Migration
             $table->string('dsl_version'); // 0.2など
             $table->jsonb('dsl_json');
             $table->boolean('active')->default(true);
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->foreign('template_id')->references('id')->on('product_templates');
@@ -100,7 +108,7 @@ return new class extends Migration
             $table->jsonb('config');  // ユーザー入力の正本（config）
             $table->jsonb('derived')->default('{}'); // fiberCount等
             $table->jsonb('validation_errors')->default('[]'); // エラー配列
-
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->foreign('account_id')->references('id')->on('accounts');
@@ -124,6 +132,7 @@ return new class extends Migration
             $table->decimal('total', 12, 2);
 
             $table->jsonb('snapshot'); // テンプレ版、価格表、BOM、計算内訳など
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->foreign('account_id')->references('id')->on('accounts');
@@ -144,7 +153,7 @@ return new class extends Migration
             $table->jsonb('options')->default('{}'); // lengthMm, toleranceMm 等
             $table->string('source_path')->nullable(); // $.fibers[1] など
             $table->integer('sort_order')->default(0);
-
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->foreign('quote_id')->references('id')->on('quotes');
@@ -162,7 +171,7 @@ return new class extends Migration
 
             $table->jsonb('before_json')->nullable();
             $table->jsonb('after_json')->nullable();
-
+            $table->text('memo')->nullable();
             $table->timestampsTz();
 
             $table->foreign('actor_user_id')->references('id')->on('users');

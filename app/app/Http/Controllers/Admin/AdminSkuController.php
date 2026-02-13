@@ -21,7 +21,8 @@ final class AdminSkuController extends Controller
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('sku_code', 'ilike', "%{$q}%")
-                    ->orWhere('name', 'ilike', "%{$q}%");
+                    ->orWhere('name', 'ilike', "%{$q}%")
+                    ->orWhere('memo', 'ilike', "%{$q}%");
             });
         }
         if ($category !== '') {
@@ -56,6 +57,7 @@ final class AdminSkuController extends Controller
             'name' => 'required|string|max:255',
             'category' => 'required|string',
             'attributes' => 'nullable|string',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         if (!in_array($data['category'], self::CATEGORIES, true)) {
@@ -73,6 +75,8 @@ final class AdminSkuController extends Controller
         }
 
         $active = $request->boolean('active', true);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $id = (int)DB::table('skus')->insertGetId([
             'sku_code' => $data['sku_code'],
@@ -80,6 +84,7 @@ final class AdminSkuController extends Controller
             'category' => $data['category'],
             'active' => $active,
             'attributes' => json_encode($attrs, JSON_UNESCAPED_UNICODE),
+            'memo' => $memo,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -91,6 +96,7 @@ final class AdminSkuController extends Controller
             'category' => $data['category'],
             'active' => $active,
             'attributes' => $attrs,
+            'memo' => $memo,
         ]);
 
         return redirect()->route('admin.skus.index')->with('status', 'SKUを作成しました');
@@ -123,6 +129,7 @@ final class AdminSkuController extends Controller
             'name' => 'required|string|max:255',
             'category' => 'required|string',
             'attributes' => 'nullable|string',
+            'memo' => 'nullable|string|max:5000',
         ]);
 
         if (!in_array($data['category'], self::CATEGORIES, true)) {
@@ -140,6 +147,8 @@ final class AdminSkuController extends Controller
         }
 
         $active = $request->boolean('active', false);
+        $memo = trim((string)($data['memo'] ?? ''));
+        if ($memo === '') $memo = null;
 
         $before = (array)$sku;
         DB::table('skus')->where('id', $id)->update([
@@ -148,6 +157,7 @@ final class AdminSkuController extends Controller
             'category' => $data['category'],
             'active' => $active,
             'attributes' => json_encode($attrs, JSON_UNESCAPED_UNICODE),
+            'memo' => $memo,
             'updated_at' => now(),
         ]);
 
